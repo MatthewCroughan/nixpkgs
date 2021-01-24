@@ -19820,6 +19820,7 @@ in
     ubootOdroidC2
     ubootOdroidXU3
     ubootOrangePiPc
+    ubootOrangePi3
     ubootOrangePiZeroPlus2H5
     ubootPcduino3Nano
     ubootPine64

@@ -19,9 +19,11 @@
 
 let
   defaultVersion = "2021.01";
-  defaultSrc = fetchurl {
-    url = "ftp://ftp.denx.de/pub/u-boot/u-boot-${defaultVersion}.tar.bz2";
-    sha256 = "0m04glv9kn3bhs62sn675w60wkrl4m3a4hnbnnw67s3l198y21xl";
+  defaultSrc = fetchGit {
+#    url = "https://github.com/samueldr/u-boot";
+#    ref = "wip/orangepi3";
+    url = "https://github.com/matthewcroughan/u-boot";
+    ref = "v2021.01-orangepi3";
   };
   buildUBoot = {
     version ? null
@@ -239,6 +241,13 @@ in {
   ubootOrangePiPc = buildUBoot {
     defconfig = "orangepi_pc_defconfig";
     extraMeta.platforms = ["armv7l-linux"];
+    filesToInstall = ["u-boot-sunxi-with-spl.bin"];
+  };
+
+  ubootOrangePi3 = buildUBoot {
+    defconfig = "orangepi_3_defconfig";
+    extraMeta.platforms = ["aarch64-linux"];
+    BL31 = "${armTrustedFirmwareAllwinner}/bl31.bin";
     filesToInstall = ["u-boot-sunxi-with-spl.bin"];
   };
 
