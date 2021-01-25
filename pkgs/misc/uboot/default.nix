@@ -23,7 +23,7 @@ let
 #    url = "https://github.com/samueldr/u-boot";
 #    ref = "wip/orangepi3";
     url = "https://github.com/matthewcroughan/u-boot";
-    ref = "v2021.01-orangepi3";
+    ref = "v2020.07-orangepi3-armbian";
   };
   buildUBoot = {
     version ? null
