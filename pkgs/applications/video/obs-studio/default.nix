@@ -4,7 +4,7 @@
 , addOpenGLRunpath
 , cmake
 , fdk_aac
-, ffmpeg
+, ffmpeg-full
 , jansson
 , libjack2
 , libxkbcommon
@@ -58,7 +58,7 @@ in mkDerivation rec {
   buildInputs = [
     curl
     fdk_aac
-    ffmpeg
+    ffmpeg-full
     jansson
     libcef
     libjack2
