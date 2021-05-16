@@ -2177,6 +2177,12 @@
     githubId = 990767;
     name = "Daniel Olsen";
   };
+  daneads = {
+    email = "me@daneads.com";
+    github = "daneads";
+    githubId = 24708079;
+    name = "Dan Eads";
+  };
   danharaj = {
     email = "dan@obsidian.systems";
     github = "danharaj";
@@ -2438,6 +2444,12 @@
     github = "diegolelis";
     githubId = 8404455;
     name = "Diego Lelis";
+  };
+  diogox = {
+    name = "Diogo Xavier";
+    email = "13244408+diogox@users.noreply.github.com";
+    github = "diogox";
+    githubId = 13244408;
   };
   dipinhora = {
     email = "dipinhora+github@gmail.com";
@@ -4740,6 +4752,12 @@
     github = "joamaki";
     githubId = 1102396;
     name = "Jussi Maki";
+  };
+  joaquinito2051 = {
+    email = "joaquinito2051@gmail.com";
+    github = "heroku-miraheze";
+    githubId = 61781343;
+    name = "Joaquín Rufo Gutierrez";
   };
   jobojeha = {
     email = "jobojeha@jeppener.de";
@@ -10559,7 +10577,12 @@
     githubId = 45292658;
     name = "Julius Schmitt";
   };
-
+  vojta001 = {
+    email = "vojtech.kane@gmail.com";
+    github = "vojta001";
+    githubId = 7038383;
+    name = "Vojta Káně";
+  };
   volhovm = {
     email = "volhovm.cs@gmail.com";
     github = "volhovm";

@@ -251,6 +251,8 @@ in
 
   eclipse-mat = callPackage ../development/tools/eclipse-mat { };
 
+  frugal = callPackage ../development/tools/frugal { };
+
   glade = callPackage ../development/tools/glade { };
 
   hobbes = callPackage ../development/tools/hobbes { };
@@ -1083,6 +1085,8 @@ in
 
   audiowaveform = callPackage ../tools/audio/audiowaveform { };
 
+  authenticator = callPackage ../applications/misc/authenticator { };
+
   autoflake = callPackage ../development/tools/analysis/autoflake { };
 
   autospotting = callPackage ../applications/misc/autospotting { };
@@ -1227,6 +1231,10 @@ in
   boulder = callPackage ../tools/admin/boulder { };
 
   btrfs-heatmap = callPackage ../tools/filesystems/btrfs-heatmap { };
+
+  bucklespring = bucklespring-x11;
+  bucklespring-libinput = callPackage ../applications/audio/bucklespring { };
+  bucklespring-x11 = callPackage ../applications/audio/bucklespring { legacy = true; };
 
   buildbot = with python3Packages; toPythonApplication buildbot;
   buildbot-ui = with python3Packages; toPythonApplication buildbot-ui;
@@ -2825,6 +2833,8 @@ in
   midicsv = callPackage ../tools/audio/midicsv { };
 
   mididings = callPackage ../tools/audio/mididings { };
+
+  miniscript = callPackage ../applications/blockchains/miniscript { };
 
   miniserve = callPackage ../tools/misc/miniserve {
     inherit (darwin.apple_sdk.frameworks) Security;
@@ -6101,6 +6111,8 @@ in
     inherit (darwin.apple_sdk.frameworks) Security;
   };
 
+  matrix-dendrite = callPackage ../servers/matrix-dendrite { };
+
   /* Python 3.8 is currently broken with matrix-synapse since `python38Packages.bleach` fails
     (https://github.com/NixOS/nixpkgs/issues/76093) */
   matrix-synapse = callPackage ../servers/matrix-synapse { /*python3 = python38;*/ };
@@ -6183,6 +6195,8 @@ in
   mtail = callPackage ../servers/monitoring/mtail { };
 
   multitail = callPackage ../tools/misc/multitail { };
+
+  mx-puppet-discord = callPackage ../servers/mx-puppet-discord { };
 
   mxt-app = callPackage ../misc/mxt-app { };
 
@@ -8105,6 +8119,8 @@ in
 
   rrdtool = callPackage ../tools/misc/rrdtool { };
 
+  rset = callPackage ../tools/admin/rset { };
+
   rshijack = callPackage ../tools/networking/rshijack { };
 
   rsibreak = libsForQt5.callPackage ../applications/misc/rsibreak { };
@@ -8229,15 +8245,9 @@ in
 
   screen-message = callPackage ../tools/X11/screen-message { };
 
-  screencloud = callPackage ../applications/graphics/screencloud {
-    quazip = quazip_qt4;
-  };
+  screencloud = libsForQt5.callPackage ../applications/graphics/screencloud { };
 
   screenkey = callPackage ../applications/video/screenkey { };
-
-  quazip_qt4 = libsForQt5.quazip.override {
-    qtbase = qt4;
-  };
 
   scfbuild = python3.pkgs.callPackage ../tools/misc/scfbuild { };
 
@@ -9924,6 +9934,8 @@ in
 
   nix-bash-completions = callPackage ../shells/bash/nix-bash-completions { };
 
+  undistract-me = callPackage ../shells/bash/undistract-me { };
+
   dash = callPackage ../shells/dash { };
 
   dasht = callPackage ../tools/misc/dasht { };
@@ -11438,6 +11450,7 @@ in
   cargo-release = callPackage ../tools/package-management/cargo-release {
     inherit (darwin.apple_sdk.frameworks) Security;
   };
+  cargo-rr = callPackage ../development/tools/rust/cargo-rr { };
   cargo-tarpaulin = callPackage ../development/tools/analysis/cargo-tarpaulin { };
   cargo-update = callPackage ../tools/package-management/cargo-update {
     inherit (darwin.apple_sdk.frameworks) Security;
@@ -11478,6 +11491,7 @@ in
   cargo-make = callPackage ../development/tools/rust/cargo-make {
     inherit (darwin.apple_sdk.frameworks) Security SystemConfiguration;
   };
+  cargo-msrv = callPackage ../development/tools/rust/cargo-msrv { };
   cargo-play = callPackage ../development/tools/rust/cargo-play { };
   cargo-raze = callPackage ../development/tools/rust/cargo-raze {
     inherit (darwin.apple_sdk.frameworks) Security;
@@ -12560,7 +12574,7 @@ in
 
   libbpf = callPackage ../os-specific/linux/libbpf { };
 
-  bpftool = callPackage ../os-specific/linux/bpftool { };
+  bpftools = callPackage ../os-specific/linux/bpftools { };
 
   bpm-tools = callPackage ../tools/audio/bpm-tools { };
 
@@ -14041,6 +14055,8 @@ in
 
   cimg = callPackage  ../development/libraries/cimg { };
 
+  cjose = callPackage ../development/libraries/cjose { };
+
   scmccid = callPackage ../development/libraries/scmccid { };
 
   ccrtp = callPackage ../development/libraries/ccrtp { };
@@ -14083,6 +14099,8 @@ in
   chromaprint = callPackage ../development/libraries/chromaprint { };
 
   cl = callPackage ../development/libraries/cl { };
+
+  clanlib = callPackage ../development/libraries/clanlib { };
 
   classads = callPackage ../development/libraries/classads { };
 
@@ -15300,6 +15318,8 @@ in
   libaccounts-glib = callPackage ../development/libraries/libaccounts-glib { };
 
   libacr38u = callPackage ../tools/security/libacr38u { };
+
+  libadwaita = callPackage ../development/libraries/libadwaita { };
 
   libaec = callPackage ../development/libraries/libaec { };
 
@@ -19407,6 +19427,8 @@ in
   tailscale = callPackage ../servers/tailscale { };
 
   thanos = callPackage ../servers/monitoring/thanos { };
+
+  trafficserver = callPackage ../servers/http/trafficserver { };
 
   inherit (callPackages ../servers/http/tomcat { })
     tomcat7
@@ -23574,7 +23596,7 @@ in
 
   googleearth = callPackage ../applications/misc/googleearth { };
 
-  googleearth-pro = callPackage ../applications/misc/googleearth-pro { };
+  googleearth-pro = libsForQt5.callPackage ../applications/misc/googleearth-pro { };
 
   google-chrome = callPackage ../applications/networking/browsers/google-chrome { gconf = gnome2.GConf; };
 
@@ -23918,7 +23940,7 @@ in
 
   id3v2 = callPackage ../applications/audio/id3v2 { };
 
-  ideamaker = callPackage ../applications/misc/ideamaker { };
+  ideamaker = libsForQt5.callPackage ../applications/misc/ideamaker { };
 
   ifenslave = callPackage ../os-specific/linux/ifenslave { };
 
@@ -24725,6 +24747,7 @@ in
     mopidy-mpd
     mopidy-mpris
     mopidy-musicbox-webclient
+    mopidy-podcast
     mopidy-scrobbler
     mopidy-somafm
     mopidy-soundcloud
@@ -26628,7 +26651,7 @@ in
 
   gnvim = callPackage ../applications/editors/neovim/gnvim/wrapper.nix { };
 
-  neovim-remote = callPackage ../applications/editors/neovim/neovim-remote.nix { pythonPackages = python3Packages; };
+  neovim-remote = callPackage ../applications/editors/neovim/neovim-remote.nix { };
 
   vis = callPackage ../applications/editors/vis {
     inherit (lua52Packages) lpeg;
@@ -26746,6 +26769,8 @@ in
   };
 
   vscode = callPackage ../applications/editors/vscode/vscode.nix { };
+  vscode-fhs = vscode.fhs;
+  vscode-fhsWithPackages = vscode.fhsWithPackages;
 
   vscode-with-extensions = callPackage ../applications/editors/vscode/with-extensions.nix {};
 
@@ -26754,6 +26779,8 @@ in
   vscode-extensions = recurseIntoAttrs (callPackage ../misc/vscode-extensions {});
 
   vscodium = callPackage ../applications/editors/vscode/vscodium.nix { };
+  vscodium-fhs = vscodium.fhs;
+  vscodium-fhsWithPackages = vscodium.fhsWithPackages;
 
   code-server = callPackage ../servers/code-server {
     inherit (darwin.apple_sdk.frameworks) AppKit Cocoa Security;
@@ -27990,6 +28017,8 @@ in
   mars = callPackage ../games/mars { };
 
   megaglest = callPackage ../games/megaglest {};
+
+  methane = callPackage ../games/methane { };
 
   mindustry = callPackage ../games/mindustry { };
   mindustry-wayland = callPackage ../games/mindustry { glew = glew-egl; };
@@ -31253,6 +31282,8 @@ in
   psftools = callPackage ../os-specific/linux/psftools {};
 
   lc3tools = callPackage ../development/tools/lc3tools {};
+
+  xcolor = callPackage ../tools/graphics/xcolor { };
 
   zktree = callPackage ../applications/misc/zktree {};
 }
