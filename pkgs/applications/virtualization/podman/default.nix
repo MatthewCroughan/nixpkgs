@@ -50,6 +50,7 @@ buildGoModule rec {
 
   buildPhase = ''
     runHook preBuild
+    export CGO_ENABLED=1
     patchShebangs .
     ${if stdenv.isDarwin
       then "make podman-remote"
