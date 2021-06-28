@@ -48,6 +48,10 @@ buildGoModule rec {
     systemd
   ];
 
+  preBuild = ''
+    export CGO_ENABLED=1
+  '';
+
   buildPhase = ''
     runHook preBuild
     patchShebangs .
