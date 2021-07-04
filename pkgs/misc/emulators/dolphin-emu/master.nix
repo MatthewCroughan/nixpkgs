@@ -4,6 +4,8 @@
 , libSM, libXdmcp, readline, openal, udev, libevdev, portaudio, curl, alsa-lib
 , miniupnpc, enet, mbedtls, soundtouch, sfml
 , vulkan-loader ? null, libpulseaudio ? null
+, extra-cmake-modules
+, wayland, wayland-protocols
 
 # - Inputs used for Darwin
 , CoreBluetooth, ForceFeedback, IOKit, OpenGL, libpng, hidapi }:
@@ -24,20 +26,20 @@ in stdenv.mkDerivation rec {
   version = "5.0-14002";
 
   src = fetchFromGitHub {
-    owner = "dolphin-emu";
+    owner = "stenzek";
     repo = "dolphin";
-    rev = "53222560650e4a99eceafcd537d4e04d1c50b3a6";
-    sha256 = "1m71gk9hm011fpv5hmpladf7abkylmawgr60d0czkr276pzg04ky";
+    rev = "55bf55502d850854c5ddcec516122c298f75477b";
+    sha256 = "sha256-NRzOKGB0zHXrrVArYtIRCzS87Yl5ellbRyJTVA6aOX8=";
   };
 
-  nativeBuildInputs = [ cmake pkg-config ]
+  nativeBuildInputs = [ extra-cmake-modules cmake pkg-config ]
   ++ lib.optional stdenv.isLinux wrapQtAppsHook;
 
   buildInputs = [
     curl ffmpeg libao libGLU libGL pcre gettext libpthreadstubs libpulseaudio
     libXrandr libXext libXxf86vm libXinerama libSM readline openal libXdmcp lzo
     portaudio libusb1 libpng hidapi miniupnpc enet mbedtls soundtouch sfml
-    qtbase
+    qtbase wayland wayland-protocols
   ] ++ lib.optionals stdenv.isLinux [
     bluez udev libevdev alsa-lib vulkan-loader
   ] ++ lib.optionals stdenv.isDarwin [
@@ -45,6 +47,7 @@ in stdenv.mkDerivation rec {
   ];
 
   cmakeFlags = [
+    "-DENABLE_WAYLAND=1"
     "-DUSE_SHARED_ENET=ON"
     "-DENABLE_LTO=ON"
     "-DDOLPHIN_WC_REVISION=${src.rev}"
