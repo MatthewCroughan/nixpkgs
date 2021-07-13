@@ -35,6 +35,22 @@ let
       '';
     };
 
+    hyperspace-cli = super."@hyperspace/cli".override {
+      buildInputs = [
+        pkgs.makeWrapper
+        pkgs.nodePackages.node-gyp-build
+        pkgs.libtool
+        pkgs.autoconf
+        pkgs.automake
+        pkgs.nodejs
+      ];
+      postInstall = ''
+        wrapProgram "$out/bin/hyp" --prefix PATH : ${
+          pkgs.lib.makeBinPath [ pkgs.nodejs ]
+        }
+      '';
+    };
+
     coc-imselect = super.coc-imselect.override {
       meta.broken = since "10";
     };
