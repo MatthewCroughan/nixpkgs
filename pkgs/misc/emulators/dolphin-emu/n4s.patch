@@ -1,0 +1,2354 @@
+commit 5bec8da9c96e46142a8a2b7116f73b71d8855f58
+Author: Alexander Orzechowski <orzechowski.alexander@gmail.com>
+Date:   Mon Jul 19 03:33:08 2021 -0400
+
+    wayland support
+
+diff --git a/CMake/FindWaylandProtocols.cmake b/CMake/FindWaylandProtocols.cmake
+new file mode 100644
+index 0000000000..891903feaa
+--- /dev/null
++++ b/CMake/FindWaylandProtocols.cmake
+@@ -0,0 +1,28 @@
++# from https://github.com/glfw/glfw/blob/master/CMake/modules/FindWaylandProtocols.cmake
++
++find_package(PkgConfig)
++
++pkg_check_modules(WaylandProtocols QUIET wayland-protocols>=${WaylandProtocols_FIND_VERSION})
++
++execute_process(COMMAND ${PKG_CONFIG_EXECUTABLE} --variable=pkgdatadir wayland-protocols
++                OUTPUT_VARIABLE WaylandProtocols_PKGDATADIR
++                RESULT_VARIABLE _pkgconfig_failed)
++if (_pkgconfig_failed)
++    message(FATAL_ERROR "Missing wayland-protocols pkgdatadir")
++endif()
++
++string(REGEX REPLACE "[\r\n]" "" WaylandProtocols_PKGDATADIR "${WaylandProtocols_PKGDATADIR}")
++
++find_package_handle_standard_args(WaylandProtocols
++    FOUND_VAR
++        WaylandProtocols_FOUND
++    REQUIRED_VARS
++        WaylandProtocols_PKGDATADIR
++    VERSION_VAR
++        WaylandProtocols_VERSION
++    HANDLE_COMPONENTS
++)
++
++set(WAYLAND_PROTOCOLS_FOUND ${WaylandProtocols_FOUND})
++set(WAYLAND_PROTOCOLS_PKGDATADIR ${WaylandProtocols_PKGDATADIR})
++set(WAYLAND_PROTOCOLS_VERSION ${WaylandProtocols_VERSION})
+diff --git a/CMake/FindXKBCommon.cmake b/CMake/FindXKBCommon.cmake
+new file mode 100644
+index 0000000000..3cdb40b82d
+--- /dev/null
++++ b/CMake/FindXKBCommon.cmake
+@@ -0,0 +1,33 @@
++# - Try to find XKBCommon
++# Once done, this will define
++#
++#   XKBCOMMON_FOUND - System has XKBCommon
++#   XKBCOMMON_INCLUDE_DIRS - The XKBCommon include directories
++#   XKBCOMMON_LIBRARIES - The libraries needed to use XKBCommon
++#   XKBCOMMON_DEFINITIONS - Compiler switches required for using XKBCommon
++
++find_package(PkgConfig)
++pkg_check_modules(PC_XKBCOMMON QUIET xkbcommon)
++set(XKBCOMMON_DEFINITIONS ${PC_XKBCOMMON_CFLAGS_OTHER})
++
++find_path(XKBCOMMON_INCLUDE_DIR
++    NAMES xkbcommon/xkbcommon.h
++    HINTS ${PC_XKBCOMMON_INCLUDE_DIR} ${PC_XKBCOMMON_INCLUDE_DIRS}
++)
++
++find_library(XKBCOMMON_LIBRARY
++    NAMES xkbcommon
++    HINTS ${PC_XKBCOMMON_LIBRARY} ${PC_XKBCOMMON_LIBRARY_DIRS}
++)
++
++set(XKBCOMMON_LIBRARIES ${XKBCOMMON_LIBRARY})
++set(XKBCOMMON_LIBRARY_DIRS ${XKBCOMMON_LIBRARY_DIRS})
++set(XKBCOMMON_INCLUDE_DIRS ${XKBCOMMON_INCLUDE_DIR})
++
++include(FindPackageHandleStandardArgs)
++find_package_handle_standard_args(XKBCommon DEFAULT_MSG
++    XKBCOMMON_LIBRARY
++    XKBCOMMON_INCLUDE_DIR
++)
++
++mark_as_advanced(XKBCOMMON_LIBRARY XKBCOMMON_INCLUDE_DIR)
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index a480467b3e..a527a4f0e8 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -27,6 +27,7 @@ set(DOLPHIN_DEFAULT_UPDATE_TRACK "" CACHE STRING "Name of the default update tra
+ 
+ if(UNIX AND NOT APPLE AND NOT ANDROID)
+   option(ENABLE_X11 "Enables X11 Support" ON)
++  option(ENABLE_WAYLAND "Enables Wayland Support" ON)
+ endif()
+ if(NOT WIN32 AND NOT APPLE AND NOT HAIKU)
+   option(ENABLE_EGL "Enables EGL OpenGL Interface" ON)
+@@ -483,6 +484,17 @@ if(ENABLE_EGL)
+   endif()
+ endif()
+ 
++if(ENABLE_WAYLAND)
++  find_package(ECM REQUIRED NO_MODULE)
++  list(APPEND CMAKE_MODULE_PATH "${ECM_MODULE_PATH}")
++  find_package(Wayland REQUIRED Client Egl)
++  find_package(WaylandScanner REQUIRED)
++  find_package(WaylandProtocols 1.15 REQUIRED)
++  find_package(XKBCommon REQUIRED)
++  add_definitions(-DHAVE_WAYLAND=1)
++  message(STATUS "Wayland support enabled")
++endif()
++
+ if(ENCODE_FRAMEDUMPS)
+   if(WIN32 AND _M_X86_64)
+     set(FFMPEG_DIR Externals/ffmpeg)
+diff --git a/Source/Android/jni/MainAndroid.cpp b/Source/Android/jni/MainAndroid.cpp
+index e1066f1584..5cfcdf67d8 100644
+--- a/Source/Android/jni/MainAndroid.cpp
++++ b/Source/Android/jni/MainAndroid.cpp
+@@ -419,7 +419,10 @@ JNIEXPORT void JNICALL Java_org_dolphinemu_dolphinemu_NativeLibrary_SurfaceChang
+     __android_log_print(ANDROID_LOG_ERROR, DOLPHIN_TAG, "Error: Surface is null.");
+ 
+   if (g_renderer)
+-    g_renderer->ChangeSurface(s_surf);
++  {
++    g_renderer->ChangeSurface(s_surf, ANativeWindow_getWidth(s_surf),
++                              ANativeWindow_getHeight(s_surf));
++  }
+ }
+ 
+ JNIEXPORT void JNICALL Java_org_dolphinemu_dolphinemu_NativeLibrary_SurfaceDestroyed(JNIEnv*,
+@@ -428,7 +431,7 @@ JNIEXPORT void JNICALL Java_org_dolphinemu_dolphinemu_NativeLibrary_SurfaceDestr
+   std::lock_guard<std::mutex> guard(s_surface_lock);
+ 
+   if (g_renderer)
+-    g_renderer->ChangeSurface(nullptr);
++    g_renderer->ChangeSurface(nullptr, 0, 0);
+ 
+   if (s_surf)
+   {
+diff --git a/Source/Core/Common/CMakeLists.txt b/Source/Core/Common/CMakeLists.txt
+index 1b806129fd..dd9286d10c 100644
+--- a/Source/Core/Common/CMakeLists.txt
++++ b/Source/Core/Common/CMakeLists.txt
+@@ -240,11 +240,20 @@ if(ENABLE_EGL AND EGL_FOUND)
+       GL/GLInterface/EGLAndroid.cpp
+       GL/GLInterface/EGLAndroid.h
+     )
+-  elseif(ENABLE_X11 AND X11_FOUND)
+-    target_sources(common PRIVATE
+-      GL/GLInterface/EGLX11.cpp
+-      GL/GLInterface/EGLX11.h
+-    )
++  else()
++      if(ENABLE_X11 AND X11_FOUND)
++        target_sources(common PRIVATE
++          GL/GLInterface/EGLX11.cpp
++          GL/GLInterface/EGLX11.h
++        )
++      endif()
++      if(ENABLE_WAYLAND AND WAYLAND_FOUND)
++        target_sources(common PRIVATE
++          GL/GLInterface/EGLWayland.cpp
++          GL/GLInterface/EGLWayland.h
++        )
++        target_link_libraries(common PRIVATE Wayland::Egl)
++      endif()
+   endif()
+   target_include_directories(common PRIVATE ${EGL_INCLUDE_DIRS})
+   target_link_libraries(common PUBLIC ${EGL_LIBRARIES})
+diff --git a/Source/Core/Common/GL/GLContext.cpp b/Source/Core/Common/GL/GLContext.cpp
+index f7b6ca8af8..7d07303617 100644
+--- a/Source/Core/Common/GL/GLContext.cpp
++++ b/Source/Core/Common/GL/GLContext.cpp
+@@ -25,6 +25,9 @@
+ #if defined(ANDROID)
+ #include "Common/GL/GLInterface/EGLAndroid.h"
+ #endif
++#if HAVE_WAYLAND
++#include "Common/GL/GLInterface/EGLWayland.h"
++#endif
+ #endif
+ 
+ const std::array<std::pair<int, int>, 9> GLContext::s_desktop_opengl_versions = {
+@@ -57,11 +60,11 @@ bool GLContext::ClearCurrent()
+   return false;
+ }
+ 
+-void GLContext::Update()
++void GLContext::UpdateDimensions(int window_width, int window_height)
+ {
+ }
+ 
+-void GLContext::UpdateSurface(void* window_handle)
++void GLContext::UpdateSurface(void* window_handle, int window_width, int window_height)
+ {
+ }
+ 
+@@ -113,6 +116,10 @@ std::unique_ptr<GLContext> GLContext::Create(const WindowSystemInfo& wsi, bool s
+ #endif
+   }
+ #endif
++#if HAVE_WAYLAND
++  if (wsi.type == WindowSystemType::Wayland)
++    context = std::make_unique<GLContextEGLWayland>();
++#endif
+ #if HAVE_EGL
+   if (wsi.type == WindowSystemType::Headless || wsi.type == WindowSystemType::FBDev)
+     context = std::make_unique<GLContextEGL>();
+diff --git a/Source/Core/Common/GL/GLContext.h b/Source/Core/Common/GL/GLContext.h
+index a1d0a931bf..7ccd68e156 100644
+--- a/Source/Core/Common/GL/GLContext.h
++++ b/Source/Core/Common/GL/GLContext.h
+@@ -36,8 +36,8 @@ public:
+   virtual bool MakeCurrent();
+   virtual bool ClearCurrent();
+ 
+-  virtual void Update();
+-  virtual void UpdateSurface(void* window_handle);
++  virtual void UpdateDimensions(int window_width, int window_height);
++  virtual void UpdateSurface(void* window_handle, int window_width, int window_height);
+ 
+   virtual void Swap();
+   virtual void SwapInterval(int interval);
+diff --git a/Source/Core/Common/GL/GLInterface/AGL.h b/Source/Core/Common/GL/GLInterface/AGL.h
+index dda9fee0e3..f76733420f 100644
+--- a/Source/Core/Common/GL/GLInterface/AGL.h
++++ b/Source/Core/Common/GL/GLInterface/AGL.h
+@@ -28,7 +28,7 @@ public:
+   bool MakeCurrent() override;
+   bool ClearCurrent() override;
+ 
+-  void Update() override;
++  void UpdateDimensions(int window_width, int window_height) override;
+ 
+   void Swap() override;
+   void SwapInterval(int interval) override;
+diff --git a/Source/Core/Common/GL/GLInterface/AGL.mm b/Source/Core/Common/GL/GLInterface/AGL.mm
+index a6fc7f0c0e..b0358a17dd 100644
+--- a/Source/Core/Common/GL/GLInterface/AGL.mm
++++ b/Source/Core/Common/GL/GLInterface/AGL.mm
+@@ -144,7 +144,7 @@ bool GLContextAGL::ClearCurrent()
+   return true;
+ }
+ 
+-void GLContextAGL::Update()
++void GLContextAGL::UpdateDimensions(int window_width, int window_height)
+ {
+   if (!m_view)
+     return;
+diff --git a/Source/Core/Common/GL/GLInterface/EGL.cpp b/Source/Core/Common/GL/GLInterface/EGL.cpp
+index 090a6cf101..53fb19e22a 100644
+--- a/Source/Core/Common/GL/GLInterface/EGL.cpp
++++ b/Source/Core/Common/GL/GLInterface/EGL.cpp
+@@ -291,8 +291,8 @@ bool GLContextEGL::CreateWindowSurface()
+ {
+   if (!IsHeadless())
+   {
+-    EGLNativeWindowType native_window = GetEGLNativeWindow(m_config);
+-    m_egl_surface = eglCreateWindowSurface(m_egl_display, m_config, native_window, nullptr);
++    m_native_window = GetEGLNativeWindow(m_config);
++    m_egl_surface = eglCreateWindowSurface(m_egl_display, m_config, m_native_window, nullptr);
+     if (!m_egl_surface)
+     {
+       INFO_LOG_FMT(VIDEO, "Error: eglCreateWindowSurface failed");
+@@ -300,15 +300,7 @@ bool GLContextEGL::CreateWindowSurface()
+     }
+ 
+     // Get dimensions from the surface.
+-    EGLint surface_width = 1, surface_height = 1;
+-    if (!eglQuerySurface(m_egl_display, m_egl_surface, EGL_WIDTH, &surface_width) ||
+-        !eglQuerySurface(m_egl_display, m_egl_surface, EGL_HEIGHT, &surface_height))
+-    {
+-      WARN_LOG_FMT(VIDEO,
+-                   "Failed to get surface dimensions via eglQuerySurface. Size may be incorrect.");
+-    }
+-    m_backbuffer_width = static_cast<int>(surface_width);
+-    m_backbuffer_height = static_cast<int>(surface_height);
++    QueryDimensions();
+   }
+   else if (!m_supports_surfaceless)
+   {
+@@ -346,9 +338,16 @@ bool GLContextEGL::MakeCurrent()
+   return eglMakeCurrent(m_egl_display, m_egl_surface, m_egl_surface, m_egl_context);
+ }
+ 
+-void GLContextEGL::UpdateSurface(void* window_handle)
++void GLContextEGL::UpdateDimensions(int window_width, int window_height)
++{
++  QueryDimensions();
++}
++
++void GLContextEGL::UpdateSurface(void* window_handle, int window_width, int window_height)
+ {
+   m_wsi.render_surface = window_handle;
++  m_wsi.render_surface_width = window_width;
++  m_wsi.render_surface_height = window_height;
+   ClearCurrent();
+   DestroyWindowSurface();
+   CreateWindowSurface();
+@@ -375,3 +374,15 @@ void GLContextEGL::DestroyContext()
+   m_egl_context = EGL_NO_CONTEXT;
+   m_egl_display = EGL_NO_DISPLAY;
+ }
++
++void GLContextEGL::QueryDimensions()
++{
++  EGLint surface_width = 1, surface_height = 1;
++  if (!eglQuerySurface(m_egl_display, m_egl_surface, EGL_WIDTH, &surface_width) ||
++      !eglQuerySurface(m_egl_display, m_egl_surface, EGL_HEIGHT, &surface_height))
++  {
++    WARN_LOG(VIDEO, "Failed to get surface dimensions via eglQuerySurface. Size may be incorrect.");
++  }
++  m_backbuffer_width = static_cast<u32>(surface_width);
++  m_backbuffer_height = static_cast<u32>(surface_height);
++}
+diff --git a/Source/Core/Common/GL/GLInterface/EGL.h b/Source/Core/Common/GL/GLInterface/EGL.h
+index bed1b31ecc..5029765265 100644
+--- a/Source/Core/Common/GL/GLInterface/EGL.h
++++ b/Source/Core/Common/GL/GLInterface/EGL.h
+@@ -22,7 +22,8 @@ public:
+   bool MakeCurrent() override;
+   bool ClearCurrent() override;
+ 
+-  void UpdateSurface(void* window_handle) override;
++  void UpdateDimensions(int window_width, int window_height);
++  void UpdateSurface(void* window_handle, int window_width, int window_height) override;
+ 
+   void Swap() override;
+   void SwapInterval(int interval) override;
+@@ -39,9 +40,12 @@ protected:
+   void DestroyWindowSurface();
+   void DetectMode();
+   void DestroyContext();
++  void QueryDimensions();
+ 
+   WindowSystemInfo m_wsi = {};
+ 
++  EGLNativeWindowType m_native_window = {};
++
+   EGLConfig m_config;
+   bool m_supports_surfaceless = false;
+   std::vector<int> m_attribs;
+diff --git a/Source/Core/Common/GL/GLInterface/EGLWayland.cpp b/Source/Core/Common/GL/GLInterface/EGLWayland.cpp
+new file mode 100644
+index 0000000000..422c167a2e
+--- /dev/null
++++ b/Source/Core/Common/GL/GLInterface/EGLWayland.cpp
+@@ -0,0 +1,36 @@
++// Copyright 2019 Dolphin Emulator Project
++// Licensed under GPLv2+
++// Refer to the license.txt file included.
++
++#include "Common/GL/GLInterface/EGLWayland.h"
++#include <wayland-egl.h>
++
++GLContextEGLWayland::~GLContextEGLWayland()
++{
++  if (m_native_window)
++    wl_egl_window_destroy(reinterpret_cast<wl_egl_window*>(m_native_window));
++}
++
++EGLDisplay GLContextEGLWayland::OpenEGLDisplay()
++{
++  return eglGetDisplay(reinterpret_cast<EGLNativeDisplayType>(m_wsi.display_connection));
++}
++
++void GLContextEGLWayland::UpdateDimensions(int window_width, int window_height)
++{
++  wl_egl_window_resize(reinterpret_cast<wl_egl_window*>(m_native_window), window_width,
++                       window_height, 0, 0);
++  m_backbuffer_width = window_width;
++  m_backbuffer_height = window_height;
++}
++
++EGLNativeWindowType GLContextEGLWayland::GetEGLNativeWindow(EGLConfig config)
++{
++  wl_egl_window* window =
++      wl_egl_window_create(static_cast<wl_surface*>(m_wsi.render_surface),
++                           m_wsi.render_surface_width, m_wsi.render_surface_height);
++  if (!window)
++    return {};
++
++  return reinterpret_cast<EGLNativeWindowType>(window);
++}
+diff --git a/Source/Core/Common/GL/GLInterface/EGLWayland.h b/Source/Core/Common/GL/GLInterface/EGLWayland.h
+new file mode 100644
+index 0000000000..83f403a34f
+--- /dev/null
++++ b/Source/Core/Common/GL/GLInterface/EGLWayland.h
+@@ -0,0 +1,19 @@
++// Copyright 2019 Dolphin Emulator Project
++// Licensed under GPLv2+
++// Refer to the license.txt file included.
++
++#pragma once
++
++#include "Common/GL/GLInterface/EGL.h"
++
++class GLContextEGLWayland : public GLContextEGL
++{
++public:
++  ~GLContextEGLWayland();
++
++  void UpdateDimensions(int window_width, int window_height) override;
++
++protected:
++  EGLDisplay OpenEGLDisplay() override;
++  EGLNativeWindowType GetEGLNativeWindow(EGLConfig config) override;
++};
+diff --git a/Source/Core/Common/GL/GLInterface/EGLX11.cpp b/Source/Core/Common/GL/GLInterface/EGLX11.cpp
+index f430898361..d2496c2cf4 100644
+--- a/Source/Core/Common/GL/GLInterface/EGLX11.cpp
++++ b/Source/Core/Common/GL/GLInterface/EGLX11.cpp
+@@ -11,7 +11,7 @@ GLContextEGLX11::~GLContextEGLX11()
+   m_render_window.reset();
+ }
+ 
+-void GLContextEGLX11::Update()
++void GLContextEGLX11::UpdateDimensions(int window_width, int window_height)
+ {
+   m_render_window->UpdateDimensions();
+   m_backbuffer_width = m_render_window->GetWidth();
+diff --git a/Source/Core/Common/GL/GLInterface/EGLX11.h b/Source/Core/Common/GL/GLInterface/EGLX11.h
+index 6f30333341..b199881116 100644
+--- a/Source/Core/Common/GL/GLInterface/EGLX11.h
++++ b/Source/Core/Common/GL/GLInterface/EGLX11.h
+@@ -13,7 +13,7 @@ class GLContextEGLX11 final : public GLContextEGL
+ public:
+   ~GLContextEGLX11() override;
+ 
+-  void Update() override;
++  void UpdateDimensions(int window_width, int window_height) override;
+ 
+ protected:
+   EGLDisplay OpenEGLDisplay() override;
+diff --git a/Source/Core/Common/GL/GLInterface/GLX.cpp b/Source/Core/Common/GL/GLInterface/GLX.cpp
+index 51544249f9..515d82116c 100644
+--- a/Source/Core/Common/GL/GLInterface/GLX.cpp
++++ b/Source/Core/Common/GL/GLInterface/GLX.cpp
+@@ -305,7 +305,7 @@ bool GLContextGLX::ClearCurrent()
+   return glXMakeCurrent(m_display, None, nullptr);
+ }
+ 
+-void GLContextGLX::Update()
++void GLContextGLX::UpdateDimensions(int window_width, int window_height)
+ {
+   m_render_window->UpdateDimensions();
+   m_backbuffer_width = m_render_window->GetWidth();
+diff --git a/Source/Core/Common/GL/GLInterface/GLX.h b/Source/Core/Common/GL/GLInterface/GLX.h
+index ec4bd29cb9..cf8b81a42d 100644
+--- a/Source/Core/Common/GL/GLInterface/GLX.h
++++ b/Source/Core/Common/GL/GLInterface/GLX.h
+@@ -24,7 +24,7 @@ public:
+   bool MakeCurrent() override;
+   bool ClearCurrent() override;
+ 
+-  void Update() override;
++  void UpdateDimensions(int window_width, int window_height) override;
+ 
+   void SwapInterval(int Interval) override;
+   void Swap() override;
+diff --git a/Source/Core/Common/GL/GLInterface/WGL.cpp b/Source/Core/Common/GL/GLInterface/WGL.cpp
+index 69d9e93912..dab671aaec 100644
+--- a/Source/Core/Common/GL/GLInterface/WGL.cpp
++++ b/Source/Core/Common/GL/GLInterface/WGL.cpp
+@@ -490,7 +490,7 @@ bool GLContextWGL::ClearCurrent()
+ }
+ 
+ // Update window width, size and etc. Called from Render.cpp
+-void GLContextWGL::Update()
++void GLContextWGL::UpdateDimensions(int window_width, int window_height)
+ {
+   RECT rcWindow;
+   GetClientRect(m_window_handle, &rcWindow);
+diff --git a/Source/Core/Common/GL/GLInterface/WGL.h b/Source/Core/Common/GL/GLInterface/WGL.h
+index ad2b665028..4ee867eb03 100644
+--- a/Source/Core/Common/GL/GLInterface/WGL.h
++++ b/Source/Core/Common/GL/GLInterface/WGL.h
+@@ -19,7 +19,7 @@ public:
+   bool MakeCurrent() override;
+   bool ClearCurrent() override;
+ 
+-  void Update() override;
++  void UpdateDimensions(int window_width, int window_height) override;
+ 
+   void Swap() override;
+   void SwapInterval(int interval) override;
+diff --git a/Source/Core/Common/WindowSystemInfo.h b/Source/Core/Common/WindowSystemInfo.h
+index 8936ad1a02..1f2c78ab57 100644
+--- a/Source/Core/Common/WindowSystemInfo.h
++++ b/Source/Core/Common/WindowSystemInfo.h
+@@ -41,6 +41,10 @@ struct WindowSystemInfo
+   // during video backend startup the surface pointer may change (MoltenVK).
+   void* render_surface = nullptr;
+ 
++  // Dimensions of the render surface, if this is determined by the frontend.
++  int render_surface_width = 0;
++  int render_surface_height = 0;
++
+   // Scale of the render surface. For hidpi systems, this will be >1.
+   float render_surface_scale = 1.0f;
+ };
+diff --git a/Source/Core/Core/Core.cpp b/Source/Core/Core/Core.cpp
+index 2592a6a674..efd875d469 100644
+--- a/Source/Core/Core/Core.cpp
++++ b/Source/Core/Core/Core.cpp
+@@ -465,7 +465,8 @@ static void EmuThread(std::unique_ptr<BootParameters> boot, WindowSystemInfo wsi
+   }
+   else
+   {
+-    g_controller_interface.ChangeWindow(wsi.render_window);
++    g_controller_interface.ChangeWindow(wsi.render_surface, wsi.render_surface_width,
++                                        wsi.render_surface_height);
+     Pad::LoadConfig();
+     Keyboard::LoadConfig();
+   }
+diff --git a/Source/Core/DolphinNoGUI/CMakeLists.txt b/Source/Core/DolphinNoGUI/CMakeLists.txt
+index 3943582ad2..9f137405b7 100644
+--- a/Source/Core/DolphinNoGUI/CMakeLists.txt
++++ b/Source/Core/DolphinNoGUI/CMakeLists.txt
+@@ -17,6 +17,22 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
+   target_sources(dolphin-nogui PRIVATE PlatformFBDev.cpp)
+ endif()
+ 
++if(ENABLE_WAYLAND AND WAYLAND_FOUND)
++  set(WAYLAND_PLATFORM_SRCS PlatformWayland.cpp)
++
++  # Generate the xdg-shell and xdg-decoration protocols at build-time.
++  ecm_add_wayland_client_protocol(WAYLAND_PLATFORM_SRCS
++    PROTOCOL "${WAYLAND_PROTOCOLS_PKGDATADIR}/stable/xdg-shell/xdg-shell.xml"
++    BASENAME xdg-shell)
++  ecm_add_wayland_client_protocol(WAYLAND_PLATFORM_SRCS
++    PROTOCOL "${WAYLAND_PROTOCOLS_PKGDATADIR}/unstable/xdg-decoration/xdg-decoration-unstable-v1.xml"
++    BASENAME xdg-decoration)
++
++  target_include_directories(dolphin-nogui PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
++  target_sources(dolphin-nogui PRIVATE "${WAYLAND_PLATFORM_SRCS}")
++  target_link_libraries(dolphin-nogui PRIVATE Wayland::Client)
++endif()
++
+ set_target_properties(dolphin-nogui PROPERTIES OUTPUT_NAME dolphin-emu-nogui)
+ 
+ target_link_libraries(dolphin-nogui
+diff --git a/Source/Core/DolphinNoGUI/MainNoGUI.cpp b/Source/Core/DolphinNoGUI/MainNoGUI.cpp
+index 31ddb591bb..896895d95a 100644
+--- a/Source/Core/DolphinNoGUI/MainNoGUI.cpp
++++ b/Source/Core/DolphinNoGUI/MainNoGUI.cpp
+@@ -123,6 +123,11 @@ static std::unique_ptr<Platform> GetPlatform(const optparse::Values& options)
+ {
+   std::string platform_name = static_cast<const char*>(options.get("platform"));
+ 
++#if HAVE_WAYLAND
++  if (platform_name == "wayland")
++    return Platform::CreateWaylandPlatform();
++#endif
++
+ #if HAVE_X11
+   if (platform_name == "x11" || platform_name.empty())
+     return Platform::CreateX11Platform();
+@@ -163,6 +168,10 @@ int main(int argc, char* argv[])
+ #ifdef _WIN32
+             ,
+             "win32"
++#endif
++#ifdef HAVE_WAYLAND
++            ,
++            "wayland"
+ #endif
+       });
+ 
+diff --git a/Source/Core/DolphinNoGUI/Platform.h b/Source/Core/DolphinNoGUI/Platform.h
+index 24ec06e307..8a5a4c30f2 100644
+--- a/Source/Core/DolphinNoGUI/Platform.h
++++ b/Source/Core/DolphinNoGUI/Platform.h
+@@ -34,6 +34,9 @@ public:
+ #ifdef HAVE_X11
+   static std::unique_ptr<Platform> CreateX11Platform();
+ #endif
++#ifdef HAVE_WAYLAND
++  static std::unique_ptr<Platform> CreateWaylandPlatform();
++#endif
+ 
+ #ifdef __linux__
+   static std::unique_ptr<Platform> CreateFBDevPlatform();
+diff --git a/Source/Core/DolphinNoGUI/PlatformWayland.cpp b/Source/Core/DolphinNoGUI/PlatformWayland.cpp
+new file mode 100644
+index 0000000000..9a938e0836
+--- /dev/null
++++ b/Source/Core/DolphinNoGUI/PlatformWayland.cpp
+@@ -0,0 +1,251 @@
++// Copyright 2018 Dolphin Emulator Project
++// Licensed under GPLv2+
++// Refer to the license.txt file included.
++
++#include <unistd.h>
++
++#include "DolphinNoGUI/Platform.h"
++
++#include "Common/MsgHandler.h"
++#include "Core/Config/MainSettings.h"
++#include "Core/Core.h"
++#include "Core/State.h"
++#include "InputCommon/ControllerInterface/ControllerInterface.h"
++
++#include <climits>
++#include <cstdio>
++#include <cstring>
++
++#include <wayland-client-protocol.h>
++#include "wayland-xdg-decoration-client-protocol.h"
++#include "wayland-xdg-shell-client-protocol.h"
++
++#include "UICommon/X11Utils.h"
++#include "VideoCommon/RenderBase.h"
++
++namespace
++{
++class PlatformWayland : public Platform
++{
++public:
++  ~PlatformWayland() override;
++
++  bool Init() override;
++  void SetTitle(const std::string& string) override;
++  void MainLoop() override;
++
++  WindowSystemInfo GetWindowSystemInfo() const;
++
++private:
++  void ProcessEvents();
++
++  static void GlobalRegistryHandler(void* data, wl_registry* registry, uint32_t id,
++                                    const char* interface, uint32_t version);
++  static void GlobalRegistryRemover(void* data, wl_registry* registry, uint32_t id);
++  static void XDGWMBasePing(void* data, struct xdg_wm_base* xdg_wm_base, uint32_t serial);
++  static void XDGSurfaceConfigure(void* data, struct xdg_surface* xdg_surface, uint32_t serial);
++  static void TopLevelConfigure(void* data, struct xdg_toplevel* xdg_toplevel, int32_t width,
++                                int32_t height, struct wl_array* states);
++  static void TopLevelClose(void* data, struct xdg_toplevel* xdg_toplevel);
++
++  wl_display* m_display = nullptr;
++  wl_registry* m_registry = nullptr;
++  wl_compositor* m_compositor = nullptr;
++  xdg_wm_base* m_xdg_wm_base = nullptr;
++  wl_surface* m_surface = nullptr;
++  wl_region* m_region = nullptr;
++  xdg_surface* m_xdg_surface = nullptr;
++  xdg_toplevel* m_xdg_toplevel = nullptr;
++  zxdg_decoration_manager_v1* m_decoration_manager = nullptr;
++  zxdg_toplevel_decoration_v1* m_toplevel_decoration = nullptr;
++
++  int m_surface_width = 0;
++  int m_surface_height = 0;
++};
++
++PlatformWayland::~PlatformWayland()
++{
++  if (m_xdg_toplevel)
++    xdg_toplevel_destroy(m_xdg_toplevel);
++  if (m_xdg_surface)
++    xdg_surface_destroy(m_xdg_surface);
++  if (m_surface)
++    wl_surface_destroy(m_surface);
++  if (m_region)
++    wl_region_destroy(m_region);
++  if (m_xdg_wm_base)
++    xdg_wm_base_destroy(m_xdg_wm_base);
++  if (m_compositor)
++    wl_compositor_destroy(m_compositor);
++  if (m_registry)
++    wl_registry_destroy(m_registry);
++  if (m_display)
++    wl_display_disconnect(m_display);
++}
++
++void PlatformWayland::GlobalRegistryHandler(void* data, wl_registry* registry, uint32_t id,
++                                            const char* interface, uint32_t version)
++{
++  PlatformWayland* platform = static_cast<PlatformWayland*>(data);
++  if (std::strcmp(interface, wl_compositor_interface.name) == 0)
++  {
++    platform->m_compositor = static_cast<wl_compositor*>(
++        wl_registry_bind(platform->m_registry, id, &wl_compositor_interface, 1));
++  }
++  else if (std::strcmp(interface, xdg_wm_base_interface.name) == 0)
++  {
++    platform->m_xdg_wm_base = static_cast<xdg_wm_base*>(
++        wl_registry_bind(platform->m_registry, id, &xdg_wm_base_interface, 1));
++  }
++  else if (std::strcmp(interface, zxdg_decoration_manager_v1_interface.name) == 0)
++  {
++    platform->m_decoration_manager = static_cast<zxdg_decoration_manager_v1*>(
++        wl_registry_bind(platform->m_registry, id, &zxdg_decoration_manager_v1_interface, 1));
++  }
++}
++
++void PlatformWayland::GlobalRegistryRemover(void* data, wl_registry* registry, uint32_t id)
++{
++}
++
++void PlatformWayland::XDGWMBasePing(void* data, struct xdg_wm_base* xdg_wm_base, uint32_t serial)
++{
++  xdg_wm_base_pong(xdg_wm_base, serial);
++}
++
++void PlatformWayland::XDGSurfaceConfigure(void* data, struct xdg_surface* xdg_surface,
++                                          uint32_t serial)
++{
++  xdg_surface_ack_configure(xdg_surface, serial);
++}
++
++void PlatformWayland::TopLevelConfigure(void* data, struct xdg_toplevel* xdg_toplevel,
++                                        int32_t width, int32_t height, struct wl_array* states)
++{
++  // If this is zero, it's asking us to set the size.
++  if (width == 0 || height == 0)
++    return;
++
++  PlatformWayland* platform = static_cast<PlatformWayland*>(data);
++  platform->m_surface_width = width;
++  platform->m_surface_height = height;
++  if (g_renderer)
++    g_renderer->ResizeSurface(width, height);
++  if (g_controller_interface.IsInit())
++    g_controller_interface.OnWindowResized(width, height);
++}
++
++void PlatformWayland::TopLevelClose(void* data, struct xdg_toplevel* xdg_toplevel)
++{
++  PlatformWayland* platform = static_cast<PlatformWayland*>(data);
++  platform->Stop();
++}
++
++bool PlatformWayland::Init()
++{
++  m_display = wl_display_connect(nullptr);
++  if (!m_display)
++  {
++    PanicAlert("Failed to connect to Wayland display.");
++    return false;
++  }
++
++  static const wl_registry_listener registry_listener = {GlobalRegistryHandler,
++                                                         GlobalRegistryRemover};
++  m_registry = wl_display_get_registry(m_display);
++  wl_registry_add_listener(m_registry, &registry_listener, this);
++
++  // Call back to registry listener to get compositor/shell.
++  wl_display_dispatch(m_display);
++  wl_display_roundtrip(m_display);
++
++  // We need a shell/compositor, or at least one we understand.
++  if (!m_compositor || !m_display || !m_xdg_wm_base)
++  {
++    std::fprintf(stderr, "Missing Wayland shell/compositor\n");
++    return false;
++  }
++
++  // Create the compositor and shell surface.
++  if (!(m_surface = wl_compositor_create_surface(m_compositor)) ||
++      !(m_xdg_surface = xdg_wm_base_get_xdg_surface(m_xdg_wm_base, m_surface)) ||
++      !(m_xdg_toplevel = xdg_surface_get_toplevel(m_xdg_surface)))
++  {
++    std::fprintf(stderr, "Failed to create compositor/shell surfaces\n");
++    return false;
++  }
++
++  static const xdg_wm_base_listener xdg_wm_base_listener = {XDGWMBasePing};
++  xdg_wm_base_add_listener(m_xdg_wm_base, &xdg_wm_base_listener, this);
++
++  static const xdg_surface_listener shell_surface_listener = {XDGSurfaceConfigure};
++  xdg_surface_add_listener(m_xdg_surface, &shell_surface_listener, this);
++
++  static const xdg_toplevel_listener toplevel_listener = {TopLevelConfigure, TopLevelClose};
++  xdg_toplevel_add_listener(m_xdg_toplevel, &toplevel_listener, this);
++
++  // Create region in the surface to draw into.
++  m_surface_width = Config::Get(Config::MAIN_RENDER_WINDOW_WIDTH);
++  m_surface_height = Config::Get(Config::MAIN_RENDER_WINDOW_HEIGHT);
++  m_region = wl_compositor_create_region(m_compositor);
++  wl_region_add(m_region, 0, 0, m_surface_width, m_surface_height);
++  wl_surface_set_opaque_region(m_surface, m_region);
++  wl_surface_commit(m_surface);
++
++  // This doesn't seem to have any effect on kwin...
++  xdg_surface_set_window_geometry(m_xdg_surface, Config::Get(Config::MAIN_RENDER_WINDOW_XPOS),
++                                  Config::Get(Config::MAIN_RENDER_WINDOW_YPOS),
++                                  Config::Get(Config::MAIN_RENDER_WINDOW_WIDTH),
++                                  Config::Get(Config::MAIN_RENDER_WINDOW_HEIGHT));
++
++  if (m_decoration_manager)
++  {
++    m_toplevel_decoration =
++        zxdg_decoration_manager_v1_get_toplevel_decoration(m_decoration_manager, m_xdg_toplevel);
++    if (m_toplevel_decoration)
++      zxdg_toplevel_decoration_v1_set_mode(m_toplevel_decoration,
++                                           ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
++  }
++
++  return true;
++}
++
++void PlatformWayland::SetTitle(const std::string& string)
++{
++  xdg_toplevel_set_title(m_xdg_toplevel, string.c_str());
++}
++
++void PlatformWayland::MainLoop()
++{
++  while (IsRunning())
++  {
++    UpdateRunningFlag();
++    Core::HostDispatchJobs();
++    ProcessEvents();
++
++    // TODO: Is this sleep appropriate?
++    std::this_thread::sleep_for(std::chrono::milliseconds(1));
++  }
++}
++
++WindowSystemInfo PlatformWayland::GetWindowSystemInfo() const
++{
++  WindowSystemInfo wsi;
++  wsi.type = WindowSystemType::Wayland;
++  wsi.display_connection = static_cast<void*>(m_display);
++  wsi.render_surface = reinterpret_cast<void*>(m_surface);
++  wsi.render_surface_width = m_surface_width;
++  wsi.render_surface_height = m_surface_height;
++  return wsi;
++}
++
++void PlatformWayland::ProcessEvents()
++{
++  wl_display_dispatch_pending(m_display);
++}
++}  // namespace
++
++std::unique_ptr<Platform> Platform::CreateWaylandPlatform()
++{
++  return std::make_unique<PlatformWayland>();
++}
+diff --git a/Source/Core/DolphinNoGUI/PlatformX11.cpp b/Source/Core/DolphinNoGUI/PlatformX11.cpp
+index a47d1f0d84..9629547cb2 100644
+--- a/Source/Core/DolphinNoGUI/PlatformX11.cpp
++++ b/Source/Core/DolphinNoGUI/PlatformX11.cpp
+@@ -16,6 +16,7 @@ static constexpr auto X_None = None;
+ #include "Core/ConfigManager.h"
+ #include "Core/Core.h"
+ #include "Core/State.h"
++#include "InputCommon/ControllerInterface/ControllerInterface.h"
+ 
+ #include <climits>
+ #include <cstdio>
+@@ -58,8 +59,8 @@ private:
+ #endif
+   int m_window_x = Config::Get(Config::MAIN_RENDER_WINDOW_XPOS);
+   int m_window_y = Config::Get(Config::MAIN_RENDER_WINDOW_YPOS);
+-  unsigned int m_window_width = Config::Get(Config::MAIN_RENDER_WINDOW_WIDTH);
+-  unsigned int m_window_height = Config::Get(Config::MAIN_RENDER_WINDOW_HEIGHT);
++  int m_window_width = Config::Get(Config::MAIN_RENDER_WINDOW_WIDTH);
++  int m_window_height = Config::Get(Config::MAIN_RENDER_WINDOW_HEIGHT);
+ };
+ 
+ PlatformX11::~PlatformX11()
+@@ -167,6 +168,8 @@ WindowSystemInfo PlatformX11::GetWindowSystemInfo() const
+   wsi.display_connection = static_cast<void*>(m_display);
+   wsi.render_window = reinterpret_cast<void*>(m_window);
+   wsi.render_surface = reinterpret_cast<void*>(m_window);
++  wsi.render_surface_width = m_window_width;
++  wsi.render_surface_height = m_window_height;
+   return wsi;
+ }
+ 
+@@ -177,8 +180,9 @@ void PlatformX11::UpdateWindowPosition()
+ 
+   Window winDummy;
+   unsigned int borderDummy, depthDummy;
+-  XGetGeometry(m_display, m_window, &winDummy, &m_window_x, &m_window_y, &m_window_width,
+-               &m_window_height, &borderDummy, &depthDummy);
++  XGetGeometry(m_display, m_window, &winDummy, &m_window_x, &m_window_y,
++               reinterpret_cast<unsigned int*>(&m_window_width),
++               reinterpret_cast<unsigned int*>(&m_window_height), &borderDummy, &depthDummy);
+ }
+ 
+ void PlatformX11::ProcessEvents()
+@@ -264,7 +268,12 @@ void PlatformX11::ProcessEvents()
+     case ConfigureNotify:
+     {
+       if (g_renderer)
+-        g_renderer->ResizeSurface();
++      {
++        UpdateWindowPosition();
++        g_renderer->ResizeSurface(m_window_width, m_window_height);
++      }
++      if (g_controller_interface.IsInit())
++        g_controller_interface.OnWindowResized(m_window_width, m_window_height);
+     }
+     break;
+     }
+diff --git a/Source/Core/DolphinQt/Host.cpp b/Source/Core/DolphinQt/Host.cpp
+index 29215f5bbe..4a77c00f63 100644
+--- a/Source/Core/DolphinQt/Host.cpp
++++ b/Source/Core/DolphinQt/Host.cpp
+@@ -62,7 +62,7 @@ bool Host::IsHostThread()
+   return tls_is_host_thread;
+ }
+ 
+-void Host::SetRenderHandle(void* handle)
++void Host::SetRenderHandle(void* handle, int width, int height)
+ {
+   m_render_to_main = Config::Get(Config::MAIN_RENDER_TO_MAIN);
+ 
+@@ -72,8 +72,8 @@ void Host::SetRenderHandle(void* handle)
+   m_render_handle = handle;
+   if (g_renderer)
+   {
+-    g_renderer->ChangeSurface(handle);
+-    g_controller_interface.ChangeWindow(handle);
++    g_renderer->ChangeSurface(handle, width, height);
++    g_controller_interface.ChangeWindow(handle, width, height);
+   }
+ }
+ 
+@@ -132,7 +132,9 @@ void Host::SetRenderFullscreen(bool fullscreen)
+ void Host::ResizeSurface(int new_width, int new_height)
+ {
+   if (g_renderer)
+-    g_renderer->ResizeSurface();
++    g_renderer->ResizeSurface(new_width, new_height);
++  if (g_controller_interface.IsInit())
++    g_controller_interface.OnWindowResized(new_width, new_height);
+ }
+ 
+ std::vector<std::string> Host_GetPreferredLocales()
+diff --git a/Source/Core/DolphinQt/Host.h b/Source/Core/DolphinQt/Host.h
+index 287333ac04..a6557230e2 100644
+--- a/Source/Core/DolphinQt/Host.h
++++ b/Source/Core/DolphinQt/Host.h
+@@ -29,7 +29,7 @@ public:
+   bool GetRenderFullscreen();
+ 
+   void SetMainWindowHandle(void* handle);
+-  void SetRenderHandle(void* handle);
++  void SetRenderHandle(void* handle, int width, int height);
+   void SetRenderFocus(bool focus);
+   void SetRenderFullFocus(bool focus);
+   void SetRenderFullscreen(bool fullscreen);
+diff --git a/Source/Core/DolphinQt/MainWindow.cpp b/Source/Core/DolphinQt/MainWindow.cpp
+index c4970c335d..83dd823c03 100644
+--- a/Source/Core/DolphinQt/MainWindow.cpp
++++ b/Source/Core/DolphinQt/MainWindow.cpp
+@@ -4,6 +4,7 @@
+ #include <QApplication>
+ #include <QCloseEvent>
+ #include <QDateTime>
++#include <QDesktopWidget>
+ #include <QDir>
+ #include <QDragEnterEvent>
+ #include <QDropEvent>
+@@ -11,6 +12,7 @@
+ #include <QFileInfo>
+ #include <QIcon>
+ #include <QMimeData>
++#include <QScreen>
+ #include <QStackedWidget>
+ #include <QVBoxLayout>
+ #include <QWindow>
+@@ -163,26 +165,44 @@ static WindowSystemType GetWindowSystemType()
+   return WindowSystemType::Headless;
+ }
+ 
+-static WindowSystemInfo GetWindowSystemInfo(QWindow* window)
++static WindowSystemInfo GetWindowSystemInfo(QWidget* widget)
+ {
+   WindowSystemInfo wsi;
+   wsi.type = GetWindowSystemType();
+ 
++  QWindow* window = widget ? widget->windowHandle() : nullptr;
++  if (!widget || !window)
++  {
++    wsi.display_connection = nullptr;
++    wsi.render_window = nullptr;
++    wsi.render_surface = nullptr;
++    wsi.render_surface_scale = 1.0f;
++    wsi.render_surface_width = 0;
++    wsi.render_surface_height = 0;
++    return wsi;
++  }
++
+   // Our Win32 Qt external doesn't have the private API.
+ #if defined(WIN32) || defined(__APPLE__) || defined(__HAIKU__)
+-  wsi.render_window = window ? reinterpret_cast<void*>(window->winId()) : nullptr;
++  wsi.render_window = reinterpret_cast<void*>(window->winId());
+   wsi.render_surface = wsi.render_window;
+ #else
+   QPlatformNativeInterface* pni = QGuiApplication::platformNativeInterface();
+   wsi.display_connection = pni->nativeResourceForWindow("display", window);
+   if (wsi.type == WindowSystemType::Wayland)
+-    wsi.render_window = window ? pni->nativeResourceForWindow("surface", window) : nullptr;
++    wsi.render_window = pni->nativeResourceForWindow("surface", window);
+   else
+-    wsi.render_window = window ? reinterpret_cast<void*>(window->winId()) : nullptr;
++    wsi.render_window = reinterpret_cast<void*>(window->winId());
++
+   wsi.render_surface = wsi.render_window;
+ #endif
+-  wsi.render_surface_scale = window ? static_cast<float>(window->devicePixelRatio()) : 1.0f;
+-
++  const int screen_number = QApplication::desktop()->screenNumber(widget);
++  wsi.render_surface_scale =
++      screen_number < 0 ?
++          1.0f :
++          static_cast<float>(QGuiApplication::screens()[screen_number]->devicePixelRatio());
++  wsi.render_surface_width = static_cast<int>(widget->size().width() * wsi.render_surface_scale);
++  wsi.render_surface_height = static_cast<int>(widget->size().height() * wsi.render_surface_scale);
+   return wsi;
+ }
+ 
+@@ -304,7 +324,7 @@ void MainWindow::InitControllers()
+   if (g_controller_interface.IsInit())
+     return;
+ 
+-  g_controller_interface.Initialize(GetWindowSystemInfo(windowHandle()));
++  g_controller_interface.Initialize(GetWindowSystemInfo(this));
+   Pad::Initialize();
+   Keyboard::Initialize();
+   Wiimote::Initialize(Wiimote::InitializeMode::DO_NOT_WAIT_FOR_WIIMOTES);
+@@ -1026,8 +1046,7 @@ void MainWindow::StartGame(std::unique_ptr<BootParameters>&& parameters)
+   ShowRenderWidget();
+ 
+   // Boot up, show an error if it fails to load the game.
+-  if (!BootManager::BootCore(std::move(parameters),
+-                             GetWindowSystemInfo(m_render_widget->windowHandle())))
++  if (!BootManager::BootCore(std::move(parameters), GetWindowSystemInfo(m_render_widget)))
+   {
+     ModalMessageBox::critical(this, tr("Error"), tr("Failed to init core"), QMessageBox::Ok);
+     HideRenderWidget();
+@@ -1105,7 +1124,11 @@ void MainWindow::HideRenderWidget(bool reinit, bool is_exit)
+     // Remove the widget from the stack and reparent it to nullptr, so that it can draw
+     // itself in a new window if it wants. Disconnect the title updates.
+     m_stack->removeWidget(m_render_widget);
+-    m_render_widget->setParent(nullptr);
++
++    // Don't bother unparenting it if we're going to destroy the window anyway.
++    if (!reinit)
++      m_render_widget->setParent(nullptr);
++
+     m_rendering_to_main = false;
+     m_stack->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
+     disconnect(Host::GetInstance(), &Host::RequestTitle, this, &MainWindow::setWindowTitle);
+@@ -1117,9 +1140,7 @@ void MainWindow::HideRenderWidget(bool reinit, bool is_exit)
+   // recreated
+   if (reinit)
+   {
+-    m_render_widget->hide();
+     disconnect(m_render_widget, &RenderWidget::Closed, this, &MainWindow::ForceStop);
+-
+     m_render_widget->removeEventFilter(this);
+     m_render_widget->deleteLater();
+ 
+@@ -1135,7 +1156,8 @@ void MainWindow::HideRenderWidget(bool reinit, bool is_exit)
+     // The controller interface will still be registered to the old render widget, if the core
+     // has booted. Therefore, we should re-bind it to the main window for now. When the core
+     // is next started, it will be swapped back to the new render widget.
+-    g_controller_interface.ChangeWindow(GetWindowSystemInfo(windowHandle()).render_window,
++    const WindowSystemInfo wsi = GetWindowSystemInfo(this);
++    g_controller_interface.ChangeWindow(wsi.render_window, wsi.render_surface_width, wsi.render_surface_height,
+                                         is_exit ? ControllerInterface::WindowChangeReason::Exit :
+                                                   ControllerInterface::WindowChangeReason::Other);
+   }
+diff --git a/Source/Core/DolphinQt/RenderWidget.cpp b/Source/Core/DolphinQt/RenderWidget.cpp
+index ab5017add0..fa89c1b46d 100644
+--- a/Source/Core/DolphinQt/RenderWidget.cpp
++++ b/Source/Core/DolphinQt/RenderWidget.cpp
+@@ -6,6 +6,7 @@
+ #include <array>
+ 
+ #include <QApplication>
++#include <QDesktopWidget>
+ #include <QDragEnterEvent>
+ #include <QDropEvent>
+ #include <QFileInfo>
+@@ -202,6 +203,16 @@ void RenderWidget::showFullScreen()
+   emit SizeChanged(width() * dpr, height() * dpr);
+ }
+ 
++float RenderWidget::GetDevicePixelRatio() const
++{
++  auto* desktop = QApplication::desktop();
++  int screen_nr = desktop->screenNumber(this);
++  if (screen_nr == -1)
++    screen_nr = desktop->screenNumber(parentWidget());
++
++  return desktop->screen(screen_nr)->devicePixelRatio();
++}
++
+ // Lock the cursor within the window/widget internal borders, including the aspect ratio if wanted
+ void RenderWidget::SetCursorLocked(bool locked, bool follow_aspect_ratio)
+ {
+@@ -375,7 +386,11 @@ bool RenderWidget::event(QEvent* event)
+     }
+     break;
+   case QEvent::WinIdChange:
+-    emit HandleChanged(reinterpret_cast<void*>(winId()));
++    {
++      const float dpr = GetDevicePixelRatio();
++      emit HandleChanged(reinterpret_cast<void*>(winId()), static_cast<int>(width() * dpr),
++                         static_cast<int>(height() * dpr));
++    }
+     break;
+   case QEvent::Show:
+     // Don't do if "stay on top" changed (or was true)
+@@ -433,13 +448,11 @@ bool RenderWidget::event(QEvent* event)
+     SetCursorLocked(m_cursor_locked);
+ 
+     const QResizeEvent* se = static_cast<QResizeEvent*>(event);
+-    QSize new_size = se->size();
+-
+-    QScreen* screen = window()->windowHandle()->screen();
+-
+-    const auto dpr = screen->devicePixelRatio();
+ 
+-    emit SizeChanged(new_size.width() * dpr, new_size.height() * dpr);
++    const QSize new_size = se->size();
++    const float dpr = GetDevicePixelRatio();
++    emit SizeChanged(static_cast<int>(new_size.width() * dpr),
++                     static_cast<int>(new_size.height() * dpr));
+     break;
+   }
+   // Happens when we add/remove the widget from the main window instead of the dedicated one
+diff --git a/Source/Core/DolphinQt/RenderWidget.h b/Source/Core/DolphinQt/RenderWidget.h
+index 051ca5de87..16ab02f137 100644
+--- a/Source/Core/DolphinQt/RenderWidget.h
++++ b/Source/Core/DolphinQt/RenderWidget.h
+@@ -23,11 +23,12 @@ public:
+   void SetCursorLockedOnNextActivation(bool locked = true);
+   void SetWaitingForMessageBox(bool waiting_for_message_box);
+   void SetCursorLocked(bool locked, bool follow_aspect_ratio = true);
++  float GetDevicePixelRatio() const;
+ 
+ signals:
+   void EscapePressed();
+   void Closed();
+-  void HandleChanged(void* handle);
++  void HandleChanged(void* handle, int width, int height);
+   void StateChanged(bool fullscreen);
+   void SizeChanged(int new_width, int new_height);
+   void FocusChanged(bool focus);
+diff --git a/Source/Core/InputCommon/CMakeLists.txt b/Source/Core/InputCommon/CMakeLists.txt
+index 576e87e711..972dbe55f5 100644
+--- a/Source/Core/InputCommon/CMakeLists.txt
++++ b/Source/Core/InputCommon/CMakeLists.txt
+@@ -118,15 +118,6 @@ elseif(APPLE)
+     ${FORCEFEEDBACK_LIBRARY}
+     ${IOK_LIBRARY}
+   )
+-elseif(X11_FOUND)
+-  target_sources(inputcommon PRIVATE
+-    ControllerInterface/Xlib/XInput2.cpp
+-    ControllerInterface/Xlib/XInput2.h
+-  )
+-  target_link_libraries(inputcommon PUBLIC
+-    ${X11_LIBRARIES}
+-    ${X11_INPUT_LIBRARIES}
+-  )
+ elseif(ANDROID)
+   target_compile_definitions(inputcommon PRIVATE -DCIFACE_USE_ANDROID)
+   target_sources(inputcommon PRIVATE
+@@ -137,6 +128,27 @@ elseif(ANDROID)
+     ControllerInterface/Touch/Touchscreen.cpp
+     ControllerInterface/Touch/Touchscreen.h
+   )
++else()
++  if(ENABLE_X11 AND X11_FOUND)
++    target_sources(inputcommon PRIVATE
++      ControllerInterface/Xlib/XInput2.cpp
++      ControllerInterface/Xlib/XInput2.h
++    )
++    target_link_libraries(inputcommon PUBLIC
++      ${X11_LIBRARIES}
++      ${X11_INPUT_LIBRARIES}
++    )
++  endif()
++  if(ENABLE_WAYLAND AND WAYLAND_FOUND)
++    target_sources(inputcommon PRIVATE
++      ControllerInterface/Wayland/Wayland.cpp
++      ControllerInterface/Wayland/Wayland.h
++    )
++    target_include_directories(inputcommon PRIVATE
++      ${WAYLAND_INCLUDE_DIR} ${XKBCOMMON_INCLUDE_DIR})
++    target_link_libraries(inputcommon PRIVATE
++      ${WAYLAND_LIBRARIES} ${XKBCOMMON_LIBRARIES})
++  endif()
+ endif()
+ 
+ if(ANDROID)
+diff --git a/Source/Core/InputCommon/ControllerInterface/ControllerInterface.cpp b/Source/Core/InputCommon/ControllerInterface/ControllerInterface.cpp
+index 6a9cfc25fd..8376a69cd4 100644
+--- a/Source/Core/InputCommon/ControllerInterface/ControllerInterface.cpp
++++ b/Source/Core/InputCommon/ControllerInterface/ControllerInterface.cpp
+@@ -15,6 +15,9 @@
+ #ifdef CIFACE_USE_XLIB
+ #include "InputCommon/ControllerInterface/Xlib/XInput2.h"
+ #endif
++#ifdef CIFACE_USE_WAYLAND
++#include "InputCommon/ControllerInterface/Wayland/Wayland.h"
++#endif
+ #ifdef CIFACE_USE_OSX
+ #include "InputCommon/ControllerInterface/OSX/OSX.h"
+ #include "InputCommon/ControllerInterface/Quartz/Quartz.h"
+@@ -50,7 +53,10 @@ void ControllerInterface::Initialize(const WindowSystemInfo& wsi)
+ 
+   std::lock_guard lk_population(m_devices_population_mutex);
+ 
++  // Prevent divide by zero if we somehow end up with a 0x0 window.
+   m_wsi = wsi;
++  m_wsi.render_surface_width = std::max(m_wsi.render_surface_width, 1);
++  m_wsi.render_surface_height = std::max(m_wsi.render_surface_height, 1);
+ 
+   m_populating_devices_counter = 1;
+ 
+@@ -95,13 +101,15 @@ void ControllerInterface::Initialize(const WindowSystemInfo& wsi)
+     InvokeDevicesChangedCallbacks();
+ }
+ 
+-void ControllerInterface::ChangeWindow(void* hwnd, WindowChangeReason reason)
++void ControllerInterface::ChangeWindow(void* hwnd, int width, int height, WindowChangeReason reason)
+ {
+   if (!m_is_init)
+     return;
+ 
+   // This shouldn't use render_surface so no need to update it.
+   m_wsi.render_window = hwnd;
++  m_wsi.render_surface_width = std::max(width, 1);
++  m_wsi.render_surface_height = std::max(height, 1);
+ 
+   // No need to re-add devices if this is an application exit request
+   if (reason == WindowChangeReason::Exit)
+@@ -110,6 +118,15 @@ void ControllerInterface::ChangeWindow(void* hwnd, WindowChangeReason reason)
+     RefreshDevices(RefreshReason::WindowChangeOnly);
+ }
+ 
++void ControllerInterface::OnWindowResized(int width, int height)
++{
++  m_wsi.render_surface_width = std::max(width, 1);
++  m_wsi.render_surface_height = std::max(height, 1);
++  std::lock_guard lk(m_devices_mutex);
++  for (const auto& d : m_devices)
++    d->OnWindowResized(width, height);
++}
++
+ void ControllerInterface::RefreshDevices(RefreshReason reason)
+ {
+   if (!m_is_init)
+@@ -176,7 +193,11 @@ void ControllerInterface::RefreshDevices(RefreshReason reason)
+ #endif
+ #ifdef CIFACE_USE_XLIB
+   if (m_wsi.type == WindowSystemType::X11)
+-    ciface::XInput2::PopulateDevices(m_wsi.render_window);
++    ciface::XInput2::PopulateDevices(m_wsi);
++#endif
++#ifdef CIFACE_USE_WAYLAND
++  if (m_wsi.type == WindowSystemType::Wayland)
++    ciface::Wayland::PopulateDevices(m_wsi);
+ #endif
+ #ifdef CIFACE_USE_OSX
+   if (m_wsi.type == WindowSystemType::MacOS)
+@@ -251,6 +272,9 @@ void ControllerInterface::Shutdown()
+ #ifdef CIFACE_USE_XLIB
+ // nothing needed
+ #endif
++#ifdef CIFACE_USE_WAYLAND
++// nothing needed
++#endif
+ #ifdef CIFACE_USE_OSX
+   ciface::OSX::DeInit();
+   ciface::Quartz::DeInit();
+diff --git a/Source/Core/InputCommon/ControllerInterface/ControllerInterface.h b/Source/Core/InputCommon/ControllerInterface/ControllerInterface.h
+index 7a5ee0ad26..00085d810b 100644
+--- a/Source/Core/InputCommon/ControllerInterface/ControllerInterface.h
++++ b/Source/Core/InputCommon/ControllerInterface/ControllerInterface.h
+@@ -29,6 +29,9 @@
+ #if defined(USE_PIPES)
+ #define CIFACE_USE_PIPES
+ #endif
++#if defined(HAVE_WAYLAND)
++#define CIFACE_USE_WAYLAND
++#endif
+ #define CIFACE_USE_DUALSHOCKUDPCLIENT
+ 
+ namespace ciface
+@@ -78,7 +81,8 @@ public:
+   ControllerInterface() : m_is_init(false) {}
+   void Initialize(const WindowSystemInfo& wsi);
+   // Only call from one thread at a time.
+-  void ChangeWindow(void* hwnd, WindowChangeReason reason = WindowChangeReason::Other);
++  void ChangeWindow(void* hwnd, int width, int height, WindowChangeReason reason = WindowChangeReason::Other);
++  void OnWindowResized(int width, int height);
+   // Can be called by any thread at any time (when initialized).
+   void RefreshDevices(RefreshReason reason = RefreshReason::Other);
+   void Shutdown();
+diff --git a/Source/Core/InputCommon/ControllerInterface/CoreDevice.h b/Source/Core/InputCommon/ControllerInterface/CoreDevice.h
+index def895afa1..d3a305b8c2 100644
+--- a/Source/Core/InputCommon/ControllerInterface/CoreDevice.h
++++ b/Source/Core/InputCommon/ControllerInterface/CoreDevice.h
+@@ -138,6 +138,9 @@ public:
+   // likely to be index 0, which is automatically set as the default device when there isn't one.
+   virtual int GetSortPriority() const { return 0; }
+ 
++  // Called when the window the device is bound to is resized.
++  virtual void OnWindowResized(int width, int height) {}
++
+   const std::vector<Input*>& Inputs() const { return m_inputs; }
+   const std::vector<Output*>& Outputs() const { return m_outputs; }
+ 
+diff --git a/Source/Core/InputCommon/ControllerInterface/Wayland/Wayland.cpp b/Source/Core/InputCommon/ControllerInterface/Wayland/Wayland.cpp
+new file mode 100644
+index 0000000000..68db95e5a2
+--- /dev/null
++++ b/Source/Core/InputCommon/ControllerInterface/Wayland/Wayland.cpp
+@@ -0,0 +1,395 @@
++// Copyright 2018 Dolphin Emulator Project
++// Licensed under GPLv2+
++// Refer to the license.txt file included.
++
++#include <cmath>
++#include <cstdlib>
++#include <cstring>
++#include <linux/input-event-codes.h>
++#include <sys/mman.h>
++#include <unistd.h>
++
++#include "InputCommon/ControllerInterface/Wayland/Wayland.h"
++
++#include "Common/Assert.h"
++#include "Common/StringUtil.h"
++
++// Mouse axis control output is simply divided by this number. In practice,
++// that just means you can use a smaller "dead zone" if you bind axis controls
++// to a joystick. No real need to make this customizable.
++#define MOUSE_AXIS_SENSITIVITY 8.0f
++
++// The mouse axis controls use a weighted running average. Each frame, the new
++// value is the average of the old value and the amount of relative mouse
++// motion during that frame. The old value is weighted by a ratio of
++// MOUSE_AXIS_SMOOTHING:1 compared to the new value. Increasing
++// MOUSE_AXIS_SMOOTHING makes the controls smoother, decreasing it makes them
++// more responsive. This might be useful as a user-customizable option.
++#define MOUSE_AXIS_SMOOTHING 1.5f
++
++namespace ciface
++{
++namespace Wayland
++{
++void PopulateDevices(const WindowSystemInfo& wsi)
++{
++  std::shared_ptr<KeyboardMouse> dev = std::make_shared<KeyboardMouse>();
++  if (!dev->Initialize(wsi))
++    return;
++
++  g_controller_interface.AddDevice(dev);
++}
++
++KeyboardMouse::KeyboardMouse() = default;
++
++KeyboardMouse::~KeyboardMouse()
++{
++  if (m_xkb_state)
++    xkb_state_unref(m_xkb_state);
++  if (m_xkb_keymap)
++    xkb_keymap_unref(m_xkb_keymap);
++  if (m_wl_keyboard)
++    wl_keyboard_destroy(m_wl_keyboard);
++  if (m_wl_pointer)
++    wl_pointer_destroy(m_wl_pointer);
++  if (m_wl_seat)
++    wl_seat_destroy(m_wl_seat);
++  if (m_wl_registry)
++    wl_registry_destroy(m_wl_registry);
++  if (m_xkb_context)
++    xkb_context_unref(m_xkb_context);
++  if (m_display_proxy)
++    wl_proxy_wrapper_destroy(m_display_proxy);
++  if (m_event_queue)
++    wl_event_queue_destroy(m_event_queue);
++}
++
++bool KeyboardMouse::Initialize(const WindowSystemInfo& wsi)
++{
++  m_display = static_cast<wl_display*>(wsi.display_connection);
++  m_window_width = wsi.render_surface_width;
++  m_window_height = wsi.render_surface_height;
++  m_event_queue = wl_display_create_queue(m_display);
++  if (!m_event_queue)
++    return false;
++
++  // As UpdateInput() can be called from the CPU, we don't want to clash with the main (UI) thread.
++  // Therefore, we create a second event queue for retrieving keyboard/mouse events.
++  m_display_proxy = static_cast<wl_display*>(wl_proxy_create_wrapper(m_display));
++  if (!m_display_proxy)
++    return false;
++
++  wl_proxy_set_queue(reinterpret_cast<wl_proxy*>(m_display_proxy), m_event_queue);
++  m_xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
++  if (!m_xkb_context)
++    return false;
++
++  static const wl_registry_listener registry_listener = {GlobalRegistryHandler,
++                                                         GlobalRegistryRemover};
++  m_wl_registry = wl_display_get_registry(m_display_proxy);
++  wl_proxy_set_queue(reinterpret_cast<wl_proxy*>(m_display_proxy), m_event_queue);
++  wl_registry_add_listener(m_wl_registry, &registry_listener, this);
++
++  // Call back to registry listener to get compositor/shell.
++  wl_display_dispatch_queue(m_display, m_event_queue);
++  wl_display_roundtrip_queue(m_display, m_event_queue);
++  // We need to do this twice so the seat listener is called.
++  wl_display_dispatch_queue(m_display, m_event_queue);
++
++  // If we have a keyboard, keep dispatching until we get the keymap.
++  if (m_wl_keyboard)
++  {
++    while (!m_xkb_keymap)
++    {
++      if (wl_display_dispatch_queue(m_display, m_event_queue) == -1)
++        break;
++    }
++  }
++
++  // Keyboard Keys
++  if (m_xkb_keymap)
++    AddKeyInputs();
++
++  // Mouse Buttons
++  if (m_wl_pointer)
++  {
++    for (int i = 0; i < 32; i++)
++      AddInput(new Button(i, &m_state.buttons));
++
++    // Mouse Cursor, X-/+ and Y-/+
++    for (int i = 0; i != 4; ++i)
++      AddInput(new Cursor(!!(i & 2), !!(i & 1), (i & 2) ? &m_state.cursor.y : &m_state.cursor.x));
++
++    // Mouse Axis, X-/+ and Y-/+
++    for (int i = 0; i != 4; ++i)
++      AddInput(new Axis(!!(i & 2), !!(i & 1), (i & 2) ? &m_state.axis.y : &m_state.axis.x));
++  }
++
++  return true;
++}
++
++void KeyboardMouse::UpdateInput()
++{
++  while (wl_display_prepare_read_queue(m_display, m_event_queue) != 0)
++    wl_display_dispatch_queue_pending(m_display, m_event_queue);
++
++  wl_display_read_events(m_display);
++  wl_display_dispatch_queue_pending(m_display, m_event_queue);
++}
++
++void KeyboardMouse::OnWindowResized(int width, int height)
++{
++  m_window_width = width;
++  m_window_height = height;
++}
++
++void KeyboardMouse::PointerEnter(void* data, wl_pointer* pointer, uint32_t serial,
++                                 wl_surface* surface, wl_fixed_t surface_x, wl_fixed_t surface_y)
++{
++}
++
++void KeyboardMouse::PointerLeave(void* data, wl_pointer* pointer, uint32_t serial,
++                                 wl_surface* surface)
++{
++}
++
++void KeyboardMouse::PointerMotion(void* data, wl_pointer* pointer, uint32_t time, wl_fixed_t x,
++                                  wl_fixed_t y)
++{
++  KeyboardMouse* kbm = static_cast<KeyboardMouse*>(data);
++  const float pos_x = static_cast<float>(wl_fixed_to_double(x));
++  const float pos_y = static_cast<float>(wl_fixed_to_double(y));
++  const float delta_x = pos_x - kbm->m_state.cursor.x;
++  const float delta_y = pos_y - kbm->m_state.cursor.y;
++
++  // apply axis smoothing
++  kbm->m_state.axis.x *= MOUSE_AXIS_SMOOTHING;
++  kbm->m_state.axis.x += delta_x;
++  kbm->m_state.axis.x /= MOUSE_AXIS_SMOOTHING + 1.0f;
++  kbm->m_state.axis.y *= MOUSE_AXIS_SMOOTHING;
++  kbm->m_state.axis.y += delta_y;
++  kbm->m_state.axis.y /= MOUSE_AXIS_SMOOTHING + 1.0f;
++
++  kbm->m_state.cursor.x = (pos_x / static_cast<float>(kbm->m_window_width) * 2.0f) - 1.0f;
++  kbm->m_state.cursor.y = (pos_y / static_cast<float>(kbm->m_window_height) * 2.0f) - 1.0f;
++}
++
++void KeyboardMouse::PointerButton(void* data, wl_pointer* pointer, uint32_t serial, uint32_t time,
++                                  uint32_t button, uint32_t state)
++{
++  KeyboardMouse* kbm = static_cast<KeyboardMouse*>(data);
++  if (button < BTN_MOUSE || (button - BTN_MOUSE) >= 32)
++    return;
++
++  const u32 mask = 1u << (button - BTN_MOUSE);
++  if (state == WL_POINTER_BUTTON_STATE_PRESSED)
++    kbm->m_state.buttons |= mask;
++  else if (state == WL_POINTER_BUTTON_STATE_RELEASED)
++    kbm->m_state.buttons &= ~mask;
++}
++
++void KeyboardMouse::PointerAxis(void* data, wl_pointer* pointer, uint32_t time, uint32_t axis,
++                                wl_fixed_t value)
++{
++  // TODO: Wheel support.
++  // KeyboardMouse* kbm = static_cast<KeyboardMouse*>(data);
++  // printf("pointer axis %u %f\n", axis, wl_fixed_to_double(value));
++}
++
++void KeyboardMouse::KeyboardKeymap(void* data, wl_keyboard* keyboard, uint32_t format, int32_t fd,
++                                   uint32_t size)
++{
++  KeyboardMouse* kbm = static_cast<KeyboardMouse*>(data);
++  char* keymap_string = static_cast<char*>(mmap(NULL, size, PROT_READ, MAP_SHARED, fd, 0));
++  if (kbm->m_xkb_keymap)
++    xkb_keymap_unref(kbm->m_xkb_keymap);
++  kbm->m_xkb_keymap = xkb_keymap_new_from_string(
++      kbm->m_xkb_context, keymap_string, XKB_KEYMAP_FORMAT_TEXT_V1, XKB_KEYMAP_COMPILE_NO_FLAGS);
++  munmap(keymap_string, size);
++  close(fd);
++  if (kbm->m_xkb_state)
++    xkb_state_unref(kbm->m_xkb_state);
++  kbm->m_xkb_state = xkb_state_new(kbm->m_xkb_keymap);
++}
++
++void KeyboardMouse::KeyboardEnter(void* data, wl_keyboard* keyboard, uint32_t serial,
++                                  wl_surface* surface, wl_array* keys)
++{
++}
++
++void KeyboardMouse::KeyboardLeave(void* data, wl_keyboard* keyboard, uint32_t serial,
++                                  wl_surface* surface)
++{
++}
++
++void KeyboardMouse::KeyboardKey(void* data, wl_keyboard* keyboard, uint32_t serial, uint32_t time,
++                                uint32_t key, uint32_t state)
++{
++  KeyboardMouse* kbm = static_cast<KeyboardMouse*>(data);
++
++  const xkb_keycode_t keycode = static_cast<xkb_keycode_t>(key + 8);
++  if (keycode < kbm->m_min_keycode && keycode > kbm->m_max_keycode)
++    return;
++
++  const u32 bit_index = static_cast<u32>(keycode - kbm->m_min_keycode);
++  const u32 array_index = bit_index / 32;
++  const u32 mask = 1u << (bit_index % 32);
++  if (state == WL_KEYBOARD_KEY_STATE_PRESSED)
++    kbm->m_state.keyboard[array_index] |= mask;
++  else if (state == WL_KEYBOARD_KEY_STATE_RELEASED)
++    kbm->m_state.keyboard[array_index] &= ~mask;
++}
++
++void KeyboardMouse::KeyboardModifiers(void* data, wl_keyboard* keyboard, uint32_t serial,
++                                      uint32_t mods_depressed, uint32_t mods_latched,
++                                      uint32_t mods_locked, uint32_t group)
++{
++  KeyboardMouse* kbm = static_cast<KeyboardMouse*>(data);
++  xkb_state_update_mask(kbm->m_xkb_state, mods_depressed, mods_latched, mods_locked, 0, 0, group);
++}
++
++void KeyboardMouse::AddKeyInputs()
++{
++  m_min_keycode = xkb_keymap_min_keycode(m_xkb_keymap);
++  m_max_keycode = xkb_keymap_max_keycode(m_xkb_keymap);
++  ASSERT(m_max_keycode >= m_min_keycode);
++
++  // Allocate bitmask for key state.
++  const u32 num_keycodes = static_cast<u32>(m_max_keycode - m_min_keycode) + 1;
++  m_state.keyboard.resize((num_keycodes + 31) / 32);
++
++  for (xkb_keycode_t keycode = m_min_keycode; keycode <= m_max_keycode; keycode++)
++  {
++    const xkb_layout_index_t num_layouts = xkb_keymap_num_layouts_for_key(m_xkb_keymap, keycode);
++    if (num_layouts == 0)
++      continue;
++
++    // Take the first layout which we find a valid keysym for.
++    Key* key = nullptr;
++    for (xkb_layout_index_t layout = 0; layout < num_layouts && !key; layout++)
++    {
++      const xkb_level_index_t num_levels =
++          xkb_keymap_num_levels_for_key(m_xkb_keymap, keycode, layout);
++      if (num_levels == 0)
++        continue;
++
++      // Take the first level which we find a valid keysym for.
++      for (xkb_level_index_t level = 0; level < num_levels; level++)
++      {
++        const xkb_keysym_t* keysyms;
++        int num_syms =
++            xkb_keymap_key_get_syms_by_level(m_xkb_keymap, keycode, layout, level, &keysyms);
++        if (num_syms == 0)
++          continue;
++
++        // Just take the first. Should only be one in most cases anyway.
++        const xkb_keysym_t keysym = xkb_keysym_to_upper(keysyms[0]);
++
++        char keysym_name_buf[64];
++        if (xkb_keysym_get_name(keysym, keysym_name_buf, sizeof(keysym_name_buf)) <= 0)
++          continue;
++
++        const u32 bit_index = static_cast<u32>(keycode - m_min_keycode);
++        const u32 array_index = bit_index / 32;
++        const u32 mask = 1u << (bit_index % 32);
++        key = new Key(keysym_name_buf, keycode, m_state, array_index, mask);
++        AddInput(key);
++        break;
++      }
++    }
++  }
++}
++
++void KeyboardMouse::SeatCapabilities(void* data, wl_seat* seat, uint32_t capabilities)
++{
++  KeyboardMouse* kbm = static_cast<KeyboardMouse*>(data);
++  if (capabilities & WL_SEAT_CAPABILITY_KEYBOARD)
++  {
++    static const wl_keyboard_listener keyboard_listener = {
++        &KeyboardMouse::KeyboardKeymap, &KeyboardMouse::KeyboardEnter,
++        &KeyboardMouse::KeyboardLeave, &KeyboardMouse::KeyboardKey,
++        &KeyboardMouse::KeyboardModifiers};
++    kbm->m_wl_keyboard = wl_seat_get_keyboard(seat);
++    wl_keyboard_add_listener(kbm->m_wl_keyboard, &keyboard_listener, kbm);
++  }
++  if (capabilities & WL_SEAT_CAPABILITY_POINTER)
++  {
++    static const wl_pointer_listener pointer_listener = {
++        &KeyboardMouse::PointerEnter, &KeyboardMouse::PointerLeave, &KeyboardMouse::PointerMotion,
++        &KeyboardMouse::PointerButton, &KeyboardMouse::PointerAxis};
++    kbm->m_wl_pointer = wl_seat_get_pointer(seat);
++    wl_pointer_add_listener(kbm->m_wl_pointer, &pointer_listener, kbm);
++  }
++}
++
++void KeyboardMouse::GlobalRegistryHandler(void* data, wl_registry* registry, uint32_t id,
++                                          const char* interface, uint32_t version)
++{
++  KeyboardMouse* kbm = static_cast<KeyboardMouse*>(data);
++  if (std::strcmp(interface, "wl_seat") == 0)
++  {
++    static const wl_seat_listener seat_listener = {&KeyboardMouse::SeatCapabilities};
++    kbm->m_wl_seat = static_cast<wl_seat*>(wl_registry_bind(registry, id, &wl_seat_interface, 1));
++    wl_seat_add_listener(kbm->m_wl_seat, &seat_listener, kbm);
++  }
++}
++
++void KeyboardMouse::GlobalRegistryRemover(void* data, wl_registry* registry, uint32_t id)
++{
++}
++
++std::string KeyboardMouse::GetName() const
++{
++  return "Keyboard and Mouse";
++}
++
++std::string KeyboardMouse::GetSource() const
++{
++  return "Wayland";
++}
++
++KeyboardMouse::Key::Key(const std::string& name, const xkb_keycode_t keycode, const State& state,
++                        const u32 index, const u32 mask)
++    : m_keyname(name), m_keycode(keycode), m_state(state), m_index(index), m_mask(mask)
++{
++}
++
++ControlState KeyboardMouse::Key::GetState() const
++{
++  return (m_state.keyboard[m_index] & m_mask) != 0;
++}
++
++KeyboardMouse::Button::Button(unsigned int index, unsigned int* buttons)
++    : m_buttons(buttons), m_index(index)
++{
++  m_name = StringFromFormat("Click %d", m_index + 1);
++}
++
++ControlState KeyboardMouse::Button::GetState() const
++{
++  return ((*m_buttons & (1 << m_index)) != 0);
++}
++
++KeyboardMouse::Cursor::Cursor(u8 index, bool positive, const float* cursor)
++    : m_cursor(cursor), m_index(index), m_positive(positive)
++{
++  m_name = std::string("Cursor ") + (char)('X' + m_index) + (m_positive ? '+' : '-');
++}
++
++ControlState KeyboardMouse::Cursor::GetState() const
++{
++  return std::max(0.0f, *m_cursor / (m_positive ? 1.0f : -1.0f));
++}
++
++KeyboardMouse::Axis::Axis(u8 index, bool positive, const float* axis)
++    : m_axis(axis), m_index(index), m_positive(positive)
++{
++  m_name = std::string("Axis ") + (char)('X' + m_index) + (m_positive ? '+' : '-');
++}
++
++ControlState KeyboardMouse::Axis::GetState() const
++{
++  return std::max(0.0f, *m_axis / (m_positive ? MOUSE_AXIS_SENSITIVITY : -MOUSE_AXIS_SENSITIVITY));
++}
++}  // namespace Wayland
++}  // namespace ciface
+diff --git a/Source/Core/InputCommon/ControllerInterface/Wayland/Wayland.h b/Source/Core/InputCommon/ControllerInterface/Wayland/Wayland.h
+new file mode 100644
+index 0000000000..22639a63f2
+--- /dev/null
++++ b/Source/Core/InputCommon/ControllerInterface/Wayland/Wayland.h
+@@ -0,0 +1,151 @@
++// Copyright 2018 Dolphin Emulator Project
++// Licensed under GPLv2+
++// Refer to the license.txt file included.
++
++#pragma once
++
++#include <vector>
++#include <wayland-client-protocol.h>
++#include <xkbcommon/xkbcommon.h>
++
++#include "Common/CommonTypes.h"
++#include "Common/WindowSystemInfo.h"
++#include "InputCommon/ControllerInterface/ControllerInterface.h"
++
++namespace ciface
++{
++namespace Wayland
++{
++void PopulateDevices(const WindowSystemInfo& wsi);
++
++class KeyboardMouse : public Core::Device
++{
++private:
++  struct State
++  {
++    std::vector<u32> keyboard;
++    unsigned int buttons;
++    struct
++    {
++      float x, y;
++    } cursor, axis;
++  };
++
++  class Key : public Input
++  {
++    friend class KeyboardMouse;
++
++  public:
++    std::string GetName() const override { return m_keyname; }
++    Key(const std::string& name, const xkb_keycode_t keycode, const State& state, const u32 index,
++        const u32 mask);
++    ControlState GetState() const override;
++
++  private:
++    const std::string m_keyname;
++    const xkb_keycode_t m_keycode;
++    const State& m_state;
++    const u32 m_index;
++    const u32 m_mask;
++  };
++
++  class Button : public Input
++  {
++  public:
++    std::string GetName() const override { return m_name; }
++    Button(unsigned int index, unsigned int* buttons);
++    ControlState GetState() const override;
++
++  private:
++    const unsigned int* m_buttons;
++    const unsigned int m_index;
++    std::string m_name;
++  };
++
++  class Cursor : public Input
++  {
++  public:
++    std::string GetName() const override { return m_name; }
++    bool IsDetectable() const override { return false; }
++    Cursor(u8 index, bool positive, const float* cursor);
++    ControlState GetState() const override;
++
++  private:
++    const float* m_cursor;
++    const u8 m_index;
++    const bool m_positive;
++    std::string m_name;
++  };
++
++  class Axis : public Input
++  {
++  public:
++    std::string GetName() const override { return m_name; }
++    bool IsDetectable() const override { return false; }
++    Axis(u8 index, bool positive, const float* axis);
++    ControlState GetState() const override;
++
++  private:
++    const float* m_axis;
++    const u8 m_index;
++    const bool m_positive;
++    std::string m_name;
++  };
++
++public:
++  KeyboardMouse();
++  ~KeyboardMouse();
++
++  bool Initialize(const WindowSystemInfo& wsi);
++
++  std::string GetName() const override;
++  std::string GetSource() const override;
++  void UpdateInput() override;
++  void OnWindowResized(int width, int height) override;
++
++private:
++  void AddKeyInputs();
++
++  static void PointerEnter(void* data, wl_pointer* pointer, uint32_t serial, wl_surface* surface,
++                           wl_fixed_t surface_x, wl_fixed_t surface_y);
++  static void PointerLeave(void* data, wl_pointer* pointer, uint32_t serial, wl_surface* surface);
++  static void PointerMotion(void* data, wl_pointer* pointer, uint32_t time, wl_fixed_t x,
++                            wl_fixed_t y);
++  static void PointerButton(void* data, wl_pointer* pointer, uint32_t serial, uint32_t time,
++                            uint32_t button, uint32_t state);
++  static void PointerAxis(void* data, wl_pointer* pointer, uint32_t time, uint32_t axis,
++                          wl_fixed_t value);
++  static void KeyboardKeymap(void* data, wl_keyboard* keyboard, uint32_t format, int32_t fd,
++                             uint32_t size);
++  static void KeyboardEnter(void* data, wl_keyboard* keyboard, uint32_t serial, wl_surface* surface,
++                            wl_array* keys);
++  static void KeyboardLeave(void* data, wl_keyboard* keyboard, uint32_t serial,
++                            wl_surface* surface);
++  static void KeyboardKey(void* data, wl_keyboard* keyboard, uint32_t serial, uint32_t time,
++                          uint32_t key, uint32_t state);
++  static void KeyboardModifiers(void* data, wl_keyboard* keyboard, uint32_t serial,
++                                uint32_t mods_depressed, uint32_t mods_latched,
++                                uint32_t mods_locked, uint32_t group);
++  static void SeatCapabilities(void* data, wl_seat* seat, uint32_t capabilities);
++  static void GlobalRegistryHandler(void* data, wl_registry* registry, uint32_t id,
++                                    const char* interface, uint32_t version);
++  static void GlobalRegistryRemover(void* data, wl_registry* registry, uint32_t id);
++
++  wl_display* m_display = nullptr;
++  wl_display* m_display_proxy = nullptr;
++  wl_event_queue* m_event_queue = nullptr;
++  wl_registry* m_wl_registry = nullptr;
++  wl_seat* m_wl_seat = nullptr;
++  wl_keyboard* m_wl_keyboard = nullptr;
++  wl_pointer* m_wl_pointer = nullptr;
++  xkb_context* m_xkb_context = nullptr;
++  xkb_keymap* m_xkb_keymap = nullptr;
++  xkb_state* m_xkb_state = nullptr;
++  State m_state = {};
++  xkb_keycode_t m_min_keycode = {};
++  xkb_keycode_t m_max_keycode = {};
++  int m_window_width = 1;
++  int m_window_height = 1;
++};
++}  // namespace Wayland
++}  // namespace ciface
+diff --git a/Source/Core/InputCommon/ControllerInterface/Xlib/XInput2.cpp b/Source/Core/InputCommon/ControllerInterface/Xlib/XInput2.cpp
+index 689b4fcf7b..779fd3bb25 100644
+--- a/Source/Core/InputCommon/ControllerInterface/Xlib/XInput2.cpp
++++ b/Source/Core/InputCommon/ControllerInterface/Xlib/XInput2.cpp
+@@ -50,7 +50,7 @@
+ namespace ciface::XInput2
+ {
+ // This function will add zero or more KeyboardMouse objects to devices.
+-void PopulateDevices(void* const hwnd)
++void PopulateDevices(const WindowSystemInfo& wsi)
+ {
+   Display* dpy = XOpenDisplay(nullptr);
+ 
+@@ -84,7 +84,7 @@ void PopulateDevices(void* const hwnd)
+       // Since current_master is a master pointer, its attachment must
+       // be a master keyboard.
+       g_controller_interface.AddDevice(std::make_shared<KeyboardMouse>(
+-          (Window)hwnd, xi_opcode, current_master->deviceid, current_master->attachment));
++          wsi, xi_opcode, current_master->deviceid, current_master->attachment));
+     }
+   }
+ 
+@@ -126,8 +126,9 @@ void KeyboardMouse::SelectEventsForDevice(XIEventMask* mask, int deviceid)
+   XIFreeDeviceInfo(all_slaves);
+ }
+ 
+-KeyboardMouse::KeyboardMouse(Window window, int opcode, int pointer, int keyboard)
+-    : m_window(window), xi_opcode(opcode), pointer_deviceid(pointer), keyboard_deviceid(keyboard)
++KeyboardMouse::KeyboardMouse(const WindowSystemInfo& wsi, int opcode, int pointer, int keyboard)
++    : m_window(reinterpret_cast<Window>(wsi.render_window)), xi_opcode(opcode),
++      pointer_deviceid(pointer), keyboard_deviceid(keyboard)
+ {
+   // The cool thing about each KeyboardMouse object having its own Display
+   // is that each one gets its own separate copy of the X11 event stream,
+@@ -135,6 +136,8 @@ KeyboardMouse::KeyboardMouse(Window window, int opcode, int pointer, int keyboar
+   // in. So be aware that each KeyboardMouse object actually has its own X11
+   // "context."
+   m_display = XOpenDisplay(nullptr);
++  m_window_width = wsi.render_surface_width;
++  m_window_height = wsi.render_surface_height;
+ 
+   // should always be 1
+   int unused;
+@@ -330,6 +333,12 @@ void KeyboardMouse::UpdateInput()
+     m_state.keyboard[i] &= keyboard[i];
+ }
+ 
++void KeyboardMouse::OnWindowResized(int width, int height)
++{
++  m_window_width = width;
++  m_window_height = height;
++}
++
+ std::string KeyboardMouse::GetName() const
+ {
+   // This is the name string we got from the X server for this master
+diff --git a/Source/Core/InputCommon/ControllerInterface/Xlib/XInput2.h b/Source/Core/InputCommon/ControllerInterface/Xlib/XInput2.h
+index 482bc37830..bc9eb89956 100644
+--- a/Source/Core/InputCommon/ControllerInterface/Xlib/XInput2.h
++++ b/Source/Core/InputCommon/ControllerInterface/Xlib/XInput2.h
+@@ -14,11 +14,12 @@ extern "C" {
+ }
+ 
+ #include "Common/Matrix.h"
++#include "Common/WindowSystemInfo.h"
+ #include "InputCommon/ControllerInterface/ControllerInterface.h"
+ 
+ namespace ciface::XInput2
+ {
+-void PopulateDevices(void* const hwnd);
++void PopulateDevices(const WindowSystemInfo& wsi);
+ 
+ class KeyboardMouse : public Core::Device
+ {
+@@ -112,8 +113,10 @@ private:
+ 
+ public:
+   void UpdateInput() override;
++  void OnWindowResized(int width, int height) override;
+ 
+-  KeyboardMouse(Window window, int opcode, int pointer_deviceid, int keyboard_deviceid);
++  KeyboardMouse(const WindowSystemInfo& wsi, int opcode, int pointer_deviceid,
++                int keyboard_deviceid);
+   ~KeyboardMouse();
+ 
+   std::string GetName() const override;
+@@ -127,5 +130,7 @@ private:
+   const int pointer_deviceid;
+   const int keyboard_deviceid;
+   std::string name;
++  int m_window_width;
++  int m_window_height;
+ };
+ }  // namespace ciface::XInput2
+diff --git a/Source/Core/VideoBackends/OGL/OGLRender.cpp b/Source/Core/VideoBackends/OGL/OGLRender.cpp
+index 0f4101dc82..462050bfcb 100644
+--- a/Source/Core/VideoBackends/OGL/OGLRender.cpp
++++ b/Source/Core/VideoBackends/OGL/OGLRender.cpp
+@@ -1078,7 +1078,7 @@ void Renderer::CheckForSurfaceChange()
+   if (!m_surface_changed.TestAndClear())
+     return;
+ 
+-  m_main_gl_context->UpdateSurface(m_new_surface_handle);
++  m_main_gl_context->UpdateSurface(m_new_surface_handle, m_new_surface_width, m_new_surface_height);
+   m_new_surface_handle = nullptr;
+ 
+   // With a surface change, the window likely has new dimensions.
+@@ -1092,7 +1092,7 @@ void Renderer::CheckForSurfaceResize()
+   if (!m_surface_resized.TestAndClear())
+     return;
+ 
+-  m_main_gl_context->Update();
++  m_main_gl_context->UpdateDimensions(m_new_surface_width, m_new_surface_height);
+   m_backbuffer_width = m_main_gl_context->GetBackBufferWidth();
+   m_backbuffer_height = m_main_gl_context->GetBackBufferHeight();
+   m_system_framebuffer->UpdateDimensions(m_backbuffer_width, m_backbuffer_height);
+diff --git a/Source/Core/VideoBackends/Software/SWOGLWindow.cpp b/Source/Core/VideoBackends/Software/SWOGLWindow.cpp
+index 0b185aeb64..e2ad7ec278 100644
+--- a/Source/Core/VideoBackends/Software/SWOGLWindow.cpp
++++ b/Source/Core/VideoBackends/Software/SWOGLWindow.cpp
+@@ -31,6 +31,16 @@ bool SWOGLWindow::IsHeadless() const
+   return m_gl_context->IsHeadless();
+ }
+ 
++u32 SWOGLWindow::GetWidth() const
++{
++  return m_gl_context->GetBackBufferWidth();
++}
++
++u32 SWOGLWindow::GetHeight() const
++{
++  return m_gl_context->GetBackBufferHeight();
++}
++
+ bool SWOGLWindow::Initialize(const WindowSystemInfo& wsi)
+ {
+   m_gl_context = GLContext::Create(wsi);
+@@ -83,11 +93,16 @@ bool SWOGLWindow::Initialize(const WindowSystemInfo& wsi)
+   return true;
+ }
+ 
++void SWOGLWindow::UpdateDimensions(int window_width, int window_height)
++{
++  // just updates the render window position and the backbuffer size
++  m_gl_context->UpdateDimensions(window_width, window_height);
++}
++
+ void SWOGLWindow::ShowImage(const AbstractTexture* image,
+                             const MathUtil::Rectangle<int>& xfb_region)
+ {
+   const SW::SWTexture* sw_image = static_cast<const SW::SWTexture*>(image);
+-  m_gl_context->Update();  // just updates the render window position and the backbuffer size
+ 
+   GLsizei glWidth = (GLsizei)m_gl_context->GetBackBufferWidth();
+   GLsizei glHeight = (GLsizei)m_gl_context->GetBackBufferHeight();
+diff --git a/Source/Core/VideoBackends/Software/SWOGLWindow.h b/Source/Core/VideoBackends/Software/SWOGLWindow.h
+index 965f7f4e43..2a4b522096 100644
+--- a/Source/Core/VideoBackends/Software/SWOGLWindow.h
++++ b/Source/Core/VideoBackends/Software/SWOGLWindow.h
+@@ -20,6 +20,10 @@ public:
+   GLContext* GetContext() const { return m_gl_context.get(); }
+   bool IsHeadless() const;
+ 
++  u32 GetWidth() const;
++  u32 GetHeight() const;
++  void UpdateDimensions(int window_width, int window_height);
++
+   // Image to show, will be swapped immediately
+   void ShowImage(const AbstractTexture* image, const MathUtil::Rectangle<int>& xfb_region);
+ 
+diff --git a/Source/Core/VideoBackends/Software/SWRenderer.cpp b/Source/Core/VideoBackends/Software/SWRenderer.cpp
+index 2089db924c..0cbb6c682a 100644
+--- a/Source/Core/VideoBackends/Software/SWRenderer.cpp
++++ b/Source/Core/VideoBackends/Software/SWRenderer.cpp
+@@ -56,7 +56,7 @@ SWRenderer::CreateFramebuffer(AbstractTexture* color_attachment, AbstractTexture
+                                static_cast<SWTexture*>(depth_attachment));
+ }
+ 
+-void SWRenderer::BindBackbuffer(const ClearColor& clear_color)
++/*void SWRenderer::BindBackbuffer(const ClearColor& clear_color)
+ {
+   // Look for framebuffer resizes
+   if (!m_surface_resized.TestAndClear())
+@@ -66,7 +66,7 @@ void SWRenderer::BindBackbuffer(const ClearColor& clear_color)
+   context->Update();
+   m_backbuffer_width = context->GetBackBufferWidth();
+   m_backbuffer_height = context->GetBackBufferHeight();
+-}
++}*/
+ 
+ class SWShader final : public AbstractShader
+ {
+@@ -103,6 +103,11 @@ std::unique_ptr<AbstractPipeline> SWRenderer::CreatePipeline(const AbstractPipel
+   return std::make_unique<SWPipeline>();
+ }
+ 
++void SWRenderer::BindBackbuffer(const ClearColor& clear_color)
++{
++  CheckForSurfaceResize();
++}
++
+ // Called on the GPU thread
+ void SWRenderer::RenderXFBToScreen(const MathUtil::Rectangle<int>& target_rc,
+                                    const AbstractTexture* source_texture,
+@@ -112,6 +117,16 @@ void SWRenderer::RenderXFBToScreen(const MathUtil::Rectangle<int>& target_rc,
+     m_window->ShowImage(source_texture, source_rc);
+ }
+ 
++void SWRenderer::CheckForSurfaceResize()
++{
++  if (!m_surface_resized.TestAndClear())
++    return;
++
++  m_window->UpdateDimensions(m_new_surface_width, m_new_surface_height);
++  m_backbuffer_width = static_cast<int>(m_window->GetWidth());
++  m_backbuffer_height = static_cast<int>(m_window->GetHeight());
++}
++
+ u32 SWRenderer::AccessEFB(EFBAccessType type, u32 x, u32 y, u32 InputData)
+ {
+   u32 value = 0;
+diff --git a/Source/Core/VideoBackends/Software/SWRenderer.h b/Source/Core/VideoBackends/Software/SWRenderer.h
+index 0c40afcd1a..a74549c966 100644
+--- a/Source/Core/VideoBackends/Software/SWRenderer.h
++++ b/Source/Core/VideoBackends/Software/SWRenderer.h
+@@ -57,6 +57,8 @@ public:
+                     const MathUtil::Rectangle<int>& src_rect) override;
+ 
+ private:
++  void CheckForSurfaceResize();
++
+   std::unique_ptr<SWOGLWindow> m_window;
+ };
+ }  // namespace SW
+diff --git a/Source/Core/VideoBackends/Vulkan/VKRenderer.cpp b/Source/Core/VideoBackends/Vulkan/VKRenderer.cpp
+index df10b3d2d7..d2ce8f177f 100644
+--- a/Source/Core/VideoBackends/Vulkan/VKRenderer.cpp
++++ b/Source/Core/VideoBackends/Vulkan/VKRenderer.cpp
+@@ -320,7 +320,7 @@ void Renderer::BindBackbuffer(const ClearColor& clear_color)
+     else if (res == VK_SUBOPTIMAL_KHR || res == VK_ERROR_OUT_OF_DATE_KHR)
+     {
+       INFO_LOG_FMT(VIDEO, "Resizing swap chain due to suboptimal/out-of-date");
+-      m_swap_chain->ResizeSwapChain();
++      m_swap_chain->ResizeSwapChain(m_backbuffer_width, m_backbuffer_height);
+     }
+     else
+     {
+@@ -328,6 +328,7 @@ void Renderer::BindBackbuffer(const ClearColor& clear_color)
+       m_swap_chain->RecreateSwapChain();
+     }
+ 
++    OnSwapChainResized();
+     res = m_swap_chain->AcquireNextImage();
+     if (res != VK_SUCCESS)
+       PanicAlertFmt("Failed to grab image from swap chain: {:#010X}", res);
+@@ -398,8 +399,11 @@ void Renderer::CheckForSurfaceChange()
+   g_command_buffer_mgr->CheckLastPresentFail();
+ 
+   // Recreate the surface. If this fails we're in trouble.
+-  if (!m_swap_chain->RecreateSurface(m_new_surface_handle))
++  if (!m_swap_chain->RecreateSurface(m_new_surface_handle, m_new_surface_width,
++                                     m_new_surface_height))
++  {
+     PanicAlertFmt("Failed to recreate Vulkan surface. Cannot continue.");
++  }
+   m_new_surface_handle = nullptr;
+ 
+   // Handle case where the dimensions are now different.
+@@ -426,7 +430,7 @@ void Renderer::CheckForSurfaceResize()
+   g_command_buffer_mgr->CheckLastPresentFail();
+ 
+   // Resize the swap chain.
+-  m_swap_chain->RecreateSwapChain();
++  m_swap_chain->ResizeSwapChain(m_new_surface_width, m_new_surface_height);
+   OnSwapChainResized();
+ }
+ 
+diff --git a/Source/Core/VideoBackends/Vulkan/VKSwapChain.cpp b/Source/Core/VideoBackends/Vulkan/VKSwapChain.cpp
+index a7f5bb929d..bc515a6d34 100644
+--- a/Source/Core/VideoBackends/Vulkan/VKSwapChain.cpp
++++ b/Source/Core/VideoBackends/Vulkan/VKSwapChain.cpp
+@@ -15,7 +15,6 @@
+ #include "VideoBackends/Vulkan/ObjectCache.h"
+ #include "VideoBackends/Vulkan/VKTexture.h"
+ #include "VideoBackends/Vulkan/VulkanContext.h"
+-#include "VideoCommon/RenderBase.h"
+ 
+ #if defined(VK_USE_PLATFORM_XLIB_KHR)
+ #include <X11/Xlib.h>
+@@ -25,7 +24,8 @@ namespace Vulkan
+ {
+ SwapChain::SwapChain(const WindowSystemInfo& wsi, VkSurfaceKHR surface, bool vsync)
+     : m_wsi(wsi), m_surface(surface), m_vsync_enabled(vsync),
+-      m_fullscreen_supported(g_vulkan_context->SupportsExclusiveFullscreen(wsi, surface))
++      m_fullscreen_supported(g_vulkan_context->SupportsExclusiveFullscreen(wsi, surface)),
++      m_width(wsi.render_surface_width), m_height(wsi.render_surface_height)
+ {
+ }
+ 
+@@ -84,6 +84,29 @@ VkSurfaceKHR SwapChain::CreateVulkanSurface(VkInstance instance, const WindowSys
+   }
+ #endif
+ 
++#if defined(VK_USE_PLATFORM_WAYLAND_KHR)
++  if (wsi.type == WindowSystemType::Wayland)
++  {
++    VkWaylandSurfaceCreateInfoKHR surface_create_info = {
++        VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR,  // VkStructureType                sType
++        nullptr,                                            // const void*                    pNext
++        0,  // VkWaylandSurfaceCreateFlagsKHR    flags
++        static_cast<wl_display*>(wsi.display_connection),  // struct wl_display* display
++        static_cast<wl_surface*>(wsi.render_surface)  // struct wl_surface*                surface
++    };
++
++    VkSurfaceKHR surface;
++    VkResult res = vkCreateWaylandSurfaceKHR(instance, &surface_create_info, nullptr, &surface);
++    if (res != VK_SUCCESS)
++    {
++      LOG_VULKAN_ERROR(res, "vkCreateWaylandSurfaceKHR failed: ");
++      return VK_NULL_HANDLE;
++    }
++
++    return surface;
++  }
++#endif
++
+ #if defined(VK_USE_PLATFORM_ANDROID_KHR)
+   if (wsi.type == WindowSystemType::Android)
+   {
+@@ -265,8 +288,8 @@ bool SwapChain::CreateSwapChain()
+   VkExtent2D size = surface_capabilities.currentExtent;
+   if (size.width == UINT32_MAX)
+   {
+-    size.width = std::max(g_renderer->GetBackbufferWidth(), 1);
+-    size.height = std::max(g_renderer->GetBackbufferHeight(), 1);
++    size.width = static_cast<u32>(m_wsi.render_surface_width);
++    size.height = static_cast<u32>(m_wsi.render_surface_height);
+   }
+   size.width = std::clamp(size.width, surface_capabilities.minImageExtent.width,
+                           surface_capabilities.maxImageExtent.width);
+@@ -463,9 +486,11 @@ VkResult SwapChain::AcquireNextImage()
+   return res;
+ }
+ 
+-bool SwapChain::ResizeSwapChain()
++bool SwapChain::ResizeSwapChain(int window_width, int window_height)
+ {
+   DestroySwapChainImages();
++  m_wsi.render_surface_width = window_width;
++  m_wsi.render_surface_height = window_height;
+   if (!CreateSwapChain() || !SetupSwapChainImages())
+   {
+     PanicAlertFmt("Failed to re-configure swap chain images, this is fatal (for now)");
+@@ -531,7 +556,7 @@ bool SwapChain::SetFullscreenState(bool state)
+ #endif
+ }
+ 
+-bool SwapChain::RecreateSurface(void* native_handle)
++bool SwapChain::RecreateSurface(void* native_handle, int window_width, int window_height)
+ {
+   // Destroy the old swap chain, images, and surface.
+   DestroySwapChainImages();
+@@ -540,6 +565,8 @@ bool SwapChain::RecreateSurface(void* native_handle)
+ 
+   // Re-create the surface with the new native handle
+   m_wsi.render_surface = native_handle;
++  m_wsi.render_surface_width = window_width;
++  m_wsi.render_surface_height = window_height;
+   m_surface = CreateVulkanSurface(g_vulkan_context->GetVulkanInstance(), m_wsi);
+   if (m_surface == VK_NULL_HANDLE)
+     return false;
+diff --git a/Source/Core/VideoBackends/Vulkan/VKSwapChain.h b/Source/Core/VideoBackends/Vulkan/VKSwapChain.h
+index 52d3bc81bb..6299bf9524 100644
+--- a/Source/Core/VideoBackends/Vulkan/VKSwapChain.h
++++ b/Source/Core/VideoBackends/Vulkan/VKSwapChain.h
+@@ -54,8 +54,8 @@ public:
+   }
+   VkResult AcquireNextImage();
+ 
+-  bool RecreateSurface(void* native_handle);
+-  bool ResizeSwapChain();
++  bool RecreateSurface(void* native_handle, int window_width, int window_height);
++  bool ResizeSwapChain(int window_width, int window_height);
+   bool RecreateSwapChain();
+ 
+   // Change vsync enabled state. This may fail as it causes a swapchain recreation.
+diff --git a/Source/Core/VideoBackends/Vulkan/VulkanContext.cpp b/Source/Core/VideoBackends/Vulkan/VulkanContext.cpp
+index b0941ae856..841ccd753c 100644
+--- a/Source/Core/VideoBackends/Vulkan/VulkanContext.cpp
++++ b/Source/Core/VideoBackends/Vulkan/VulkanContext.cpp
+@@ -203,6 +203,13 @@ bool VulkanContext::SelectInstanceExtensions(std::vector<const char*>* extension
+     return false;
+   }
+ #endif
++#if defined(VK_USE_PLATFORM_WAYLAND_KHR)
++  if (wstype == WindowSystemType::Wayland &&
++      !AddExtension(VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME, true))
++  {
++    return false;
++  }
++#endif
+ #if defined(VK_USE_PLATFORM_ANDROID_KHR)
+   if (wstype == WindowSystemType::Android &&
+       !AddExtension(VK_KHR_ANDROID_SURFACE_EXTENSION_NAME, true))
+diff --git a/Source/Core/VideoBackends/Vulkan/VulkanEntryPoints.inl b/Source/Core/VideoBackends/Vulkan/VulkanEntryPoints.inl
+index 9006baf91a..8506d3ee2b 100644
+--- a/Source/Core/VideoBackends/Vulkan/VulkanEntryPoints.inl
++++ b/Source/Core/VideoBackends/Vulkan/VulkanEntryPoints.inl
+@@ -48,6 +48,11 @@ VULKAN_INSTANCE_ENTRY_POINT(vkCreateXlibSurfaceKHR, false)
+ VULKAN_INSTANCE_ENTRY_POINT(vkGetPhysicalDeviceXlibPresentationSupportKHR, false)
+ #endif
+ 
++#if defined(VK_USE_PLATFORM_WAYLAND_KHR)
++VULKAN_INSTANCE_ENTRY_POINT(vkCreateWaylandSurfaceKHR, false)
++VULKAN_INSTANCE_ENTRY_POINT(vkGetPhysicalDeviceWaylandPresentationSupportKHR, false)
++#endif
++
+ #if defined(VK_USE_PLATFORM_ANDROID_KHR)
+ VULKAN_INSTANCE_ENTRY_POINT(vkCreateAndroidSurfaceKHR, false)
+ #endif
+diff --git a/Source/Core/VideoBackends/Vulkan/VulkanLoader.h b/Source/Core/VideoBackends/Vulkan/VulkanLoader.h
+index bc32434448..fe8bda0a39 100644
+--- a/Source/Core/VideoBackends/Vulkan/VulkanLoader.h
++++ b/Source/Core/VideoBackends/Vulkan/VulkanLoader.h
+@@ -13,6 +13,10 @@
+ #define VK_USE_PLATFORM_XLIB_KHR
+ #endif
+ 
++#if defined(HAVE_WAYLAND)
++#define VK_USE_PLATFORM_WAYLAND_KHR
++#endif
++
+ #if defined(ANDROID)
+ #define VK_USE_PLATFORM_ANDROID_KHR
+ #endif
+diff --git a/Source/Core/VideoCommon/RenderBase.cpp b/Source/Core/VideoCommon/RenderBase.cpp
+index 07fa239bba..72db64b734 100644
+--- a/Source/Core/VideoCommon/RenderBase.cpp
++++ b/Source/Core/VideoCommon/RenderBase.cpp
+@@ -653,16 +653,20 @@ bool Renderer::IsHeadless() const
+   return true;
+ }
+ 
+-void Renderer::ChangeSurface(void* new_surface_handle)
++void Renderer::ChangeSurface(void* new_surface_handle, int new_width, int new_height)
+ {
+   std::lock_guard<std::mutex> lock(m_swap_mutex);
+   m_new_surface_handle = new_surface_handle;
++  m_new_surface_width = new_width;
++  m_new_surface_height = new_height;
+   m_surface_changed.Set();
+ }
+ 
+-void Renderer::ResizeSurface()
++void Renderer::ResizeSurface(int new_width, int new_height)
+ {
+   std::lock_guard<std::mutex> lock(m_swap_mutex);
++  m_new_surface_width = new_width;
++  m_new_surface_height = new_height;
+   m_surface_resized.Set();
+ }
+ 
+diff --git a/Source/Core/VideoCommon/RenderBase.h b/Source/Core/VideoCommon/RenderBase.h
+index 19cb5fc6ac..15e624d443 100644
+--- a/Source/Core/VideoCommon/RenderBase.h
++++ b/Source/Core/VideoCommon/RenderBase.h
+@@ -237,8 +237,8 @@ public:
+   VideoCommon::PostProcessing* GetPostProcessor() const { return m_post_processor.get(); }
+   // Final surface changing
+   // This is called when the surface is resized (WX) or the window changes (Android).
+-  void ChangeSurface(void* new_surface_handle);
+-  void ResizeSurface();
++  void ChangeSurface(void* new_surface_handle, int new_width, int new_height);
++  void ResizeSurface(int new_width, int new_height);
+   bool UseVertexDepthRange() const;
+   void DoState(PointerWrap& p);
+ 
+@@ -332,6 +332,8 @@ protected:
+   std::unique_ptr<VideoCommon::PostProcessing> m_post_processor;
+ 
+   void* m_new_surface_handle = nullptr;
++  int m_new_surface_width = 0;
++  int m_new_surface_height = 0;
+   Common::Flag m_surface_changed;
+   Common::Flag m_surface_resized;
+   std::mutex m_swap_mutex;
