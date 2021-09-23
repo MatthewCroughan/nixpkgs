@@ -1,7 +1,7 @@
 { lib, buildPythonPackage, pythonOlder, fetchFromGitHub, pyparsing, pytest, typing-extensions }:
 
 buildPythonPackage rec {
-  version = "f9c0d10febbfb29d26a316164267d3059079f79f";
+  version = "0.16.6";
   pname = "ezdxf";
 
   disabled = pythonOlder "3.5";
@@ -9,8 +9,8 @@ buildPythonPackage rec {
   src = fetchFromGitHub {
     owner = "mozman";
     repo = "ezdxf";
-    rev = "${version}";
-    sha256 = "sha256-oEeGIwbfWwny0d7MvP5Kd23OxI1GPrjf+6sbNyllRIw=";
+    rev = "v${version}";
+    sha256 = "sha256-OrpAb1mYPxt0xcdzYl8eN0COjXImu8794sp92XlOtt8=";
   };
 
   checkInputs = [ pytest ];
