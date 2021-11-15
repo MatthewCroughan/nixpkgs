@@ -256,6 +256,8 @@ in
   morty = handleTest ./morty.nix {};
   mosquitto = handleTest ./mosquitto.nix {};
   mpd = handleTest ./mpd.nix {};
+  mpv = handleTest ./mpv.nix {};
+  mtp = handleTest ./mtp.nix {};
   mumble = handleTest ./mumble.nix {};
   musescore = handleTest ./musescore.nix {};
   munin = handleTest ./munin.nix {};
