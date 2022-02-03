@@ -164,8 +164,7 @@ stdenv.mkDerivation rec {
     # They comment two licenses: GPLv2 and Blender License, but they say:
     # "We've decided to cancel the BL offering for an indefinite period."
     # CUDA toolkit is unfree.
-    license = with licenses; [ gpl2Plus ]
-      ++ lib.optionals cudaSupport [ unfree ];
+    license = with licenses; [ gpl2Plus ];
     platforms = [ "x86_64-linux" "x86_64-darwin" ];
     maintainers = with maintainers; [ goibhniu veprbl ];
   };
