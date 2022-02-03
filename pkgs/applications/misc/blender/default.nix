@@ -31,6 +31,15 @@
 }:
 
 let
+  optix = fetchzip {
+    # Use IPFS to fetch the content ID of the 7.3 Optix SDK
+    url = "https://dweb.link/ipfs/QmQ1bquZzpopqEPuVw8ET5UuhpuXDPYFEVwqG2WtGSdvdc";
+    sha256 = "sha256-Krr6EIXHgWS/Qbjws76jLe54WTZqvf/MXkZo87ZpqVg=";
+    postFetch = ''
+      unzip $downloadedFile -d $out
+    '';
+  };
+
   numpyPath = "${python3.pkgs.numpy}/${python3.sitePackages}";
 in
 stdenv.mkDerivation rec {
@@ -113,7 +122,11 @@ stdenv.mkDerivation rec {
   ++ lib.optionals stdenv.cc.isClang [ "-DPYTHON_LINKFLAGS=" ]
   ++ lib.optionals jackaudioSupport [ "-DWITH_JACK=ON" ]
   ++ lib.optionals waylandSupport [ "-DWITH_GHOST_WAYLAND=ON" ]
-  ++ lib.optionals cudaSupport [ "-DWITH_CYCLES_CUDA_BINARIES=ON" ];
+  ++ lib.optionals cudaSupport [
+    "-DWITH_CYCLES_CUDA_BINARIES=ON"
+    "-DWITH_CYCLES_DEVICE_OPTIX=ON"
+    "-DOPTIX_ROOT_DIR=${optix}"
+  ];
 
   # Since some dependencies are built with gcc 6, we need gcc 6's libstdc++
   # in our RPATH. Sigh.
