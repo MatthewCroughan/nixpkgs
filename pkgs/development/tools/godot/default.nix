@@ -2,8 +2,12 @@
 , lib
 , fetchFromGitHub
 , scons
+, makeWrapper
 , pkg-config
 , udev
+, vulkan-headers
+, vulkan-loader
+, vulkan-tools
 , libX11
 , libXcursor
 , libXinerama
@@ -36,12 +40,16 @@ stdenv.mkDerivation rec {
   src = fetchFromGitHub {
     owner = "godotengine";
     repo = "godot";
-    rev = "be665ddff9662cf32d1f8651d4951324879dd8b2";
-    sha256 = "sha256-uK47UNlh07OB+7u3TQw8qXFJH9os/1rzLeW83zbdKnQ=";
+    rev = "6a51999b7f4d9f7b1f950d7a655a464f28542318";
+    sha256 = "sha256-yLNCFyr6t0sGU5m9sP7s0u6Eap1g2UOeFh88qnzVRDM=";
   };
 
   nativeBuildInputs = [ pkg-config ];
   buildInputs = [
+    makeWrapper
+    vulkan-loader
+    vulkan-headers
+    vulkan-tools
     scons
     udev
     libX11
@@ -74,6 +82,10 @@ stdenv.mkDerivation rec {
   '';
 
   outputs = [ "out" "dev" "man" ];
+  postFixup = ''
+    wrapProgram $out/bin/godot \
+      --prefix LD_LIBRARY_PATH : ${vulkan-loader}/lib
+  '';
 
   installPhase = ''
     mkdir -p "$out/bin"
