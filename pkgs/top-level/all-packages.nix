@@ -23225,6 +23225,9 @@ with pkgs;
   linuxPackages_testing_bcachefs = linuxKernel.packages.linux_testing_bcachefs;
   linux_testing_bcachefs = linuxKernel.kernels.linux_testing_bcachefs;
 
+  linuxPackages_visionfive = linuxKernel.packages.linux_visionfive;
+  linux_visionfive = linuxKernel.kernels.linux_visionfive;
+
   # kernel with mtcp support
   linuxPackages_mptcp = linuxKernel.packageAliases.linux_mptcp;
   linux_mptcp = linuxPackages_mptcp.kernel;
