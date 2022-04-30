@@ -23889,6 +23889,7 @@ with pkgs;
     ubootSheevaplug
     ubootSopine
     ubootUtilite
+    ubootVisionFive
     ubootWandboard
     ;
 
