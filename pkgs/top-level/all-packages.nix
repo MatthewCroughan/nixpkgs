@@ -9005,6 +9005,8 @@ with pkgs;
 
   opensbi = callPackage ../misc/opensbi { };
 
+  opensbiMaster = callPackage ../misc/opensbi/master.nix { };
+
   opensc = callPackage ../tools/security/opensc {
     inherit (darwin.apple_sdk.frameworks) Carbon PCSC;
   };
