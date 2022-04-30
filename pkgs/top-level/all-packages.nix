@@ -33778,6 +33778,13 @@ with pkgs;
 
   brightnessctl = callPackage ../misc/brightnessctl { };
 
+  firmware-visionfive = callPackage ../misc/firmware-visionfive {
+    opensbi = opensbiMaster.override {
+      withPayload = "${ubootVisionFive}/u-boot.bin";
+      withFDT = "${ubootVisionFive}/u-boot.dtb";
+    };
+  };
+
   cached-nix-shell = callPackage ../tools/nix/cached-nix-shell {};
 
   calaos_installer = libsForQt5.callPackage ../misc/calaos/installer {};
