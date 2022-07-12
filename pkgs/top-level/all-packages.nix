@@ -9245,6 +9245,8 @@ with pkgs;
 
   opensbi = callPackage ../misc/opensbi { };
 
+  opensbiMaster = callPackage ../misc/opensbi/master.nix { };
+
   opensc = callPackage ../tools/security/opensc {
     inherit (darwin.apple_sdk.frameworks) Carbon PCSC;
   };
@@ -23684,6 +23686,9 @@ with pkgs;
   linuxPackages_testing_bcachefs = linuxKernel.packages.linux_testing_bcachefs;
   linux_testing_bcachefs = linuxKernel.kernels.linux_testing_bcachefs;
 
+  linuxPackages_visionfive = linuxKernel.packages.linux_visionfive;
+  linux_visionfive = linuxKernel.kernels.linux_visionfive;
+
   # kernel with mtcp support
   linuxPackages_mptcp = linuxKernel.packageAliases.linux_mptcp;
   linux_mptcp = linuxPackages_mptcp.kernel;
@@ -24362,6 +24367,7 @@ with pkgs;
     ubootSheevaplug
     ubootSopine
     ubootUtilite
+    ubootVisionFive
     ubootWandboard
     ;
 
@@ -34349,6 +34355,13 @@ with pkgs;
   brgenml1cupswrapper = callPackage ../misc/cups/drivers/brgenml1cupswrapper {};
 
   brightnessctl = callPackage ../misc/brightnessctl { };
+
+  firmware-visionfive = callPackage ../misc/firmware-visionfive {
+    opensbi = opensbiMaster.override {
+      withPayload = "${ubootVisionFive}/u-boot.bin";
+      withFDT = "${ubootVisionFive}/u-boot.dtb";
+    };
+  };
 
   cached-nix-shell = callPackage ../tools/nix/cached-nix-shell {};
 

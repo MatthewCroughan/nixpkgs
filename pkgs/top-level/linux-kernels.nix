@@ -190,7 +190,12 @@ in {
     linux_testing_bcachefs = callPackage ../os-specific/linux/kernel/linux-testing-bcachefs.nix rec {
       kernel = linux_5_18;
       kernelPatches = kernel.kernelPatches;
-   };
+    };
+
+    linux_visionfive = callPackage ../os-specific/linux/kernel/linux-visionfive.nix rec {
+      kernel = linux_5_17;
+      kernelPatches = kernel.kernelPatches;
+    };
 
     linux_hardkernel_4_14 = callPackage ../os-specific/linux/kernel/linux-hardkernel-4.14.nix {
       kernelPatches = [
@@ -542,6 +547,7 @@ in {
     # Intentionally lacks recurseIntoAttrs, as -rc kernels will quite likely break out-of-tree modules and cause failed Hydra builds.
     linux_testing = packagesFor kernels.linux_testing;
     linux_testing_bcachefs = recurseIntoAttrs (packagesFor kernels.linux_testing_bcachefs);
+    linux_visionfive = recurseIntoAttrs (packagesFor kernels.linux_visionfive);
 
     linux_hardened = recurseIntoAttrs (hardenedPackagesFor packageAliases.linux_default.kernel { });
 

@@ -503,6 +503,21 @@ in {
     # sf probe; sf update $loadaddr 0 80000
   };
 
+  ubootVisionFive = buildUBoot {
+    version = "2022.04";
+
+    src = fetchFromGitHub {
+      owner = "NickCao";
+      repo = "u-boot-starfive";
+      rev = "ac75aa54020412a83b61dad46c5ea15e7f9f525c";
+      sha256 = "1idh5k1479znp24rrfa0ikgk6iv5h80zscqhi6yv5ah4czia3ip3";
+    };
+
+    defconfig = "starfive_jh7100_visionfive_smode_defconfig";
+    extraMeta.platforms = ["riscv64-linux"];
+    filesToInstall = [ "u-boot.bin" "u-boot.dtb" ];
+  };
+
   ubootWandboard = buildUBoot {
     defconfig = "wandboard_defconfig";
     extraMeta.platforms = ["armv7l-linux"];
