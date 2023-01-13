@@ -4795,6 +4795,10 @@ with pkgs;
 
   poweralertd = callPackage ../tools/misc/poweralertd { };
 
+  polyscope = callPackage ../applications/graphics/polyscope { };
+
+  polyscope-py = callPackage ../applications/graphics/polyscope-py { };
+
   ps_mem = callPackage ../tools/system/ps_mem { };
 
   pscale = callPackage ../development/tools/pscale { };
