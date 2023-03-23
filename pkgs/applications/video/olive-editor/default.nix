@@ -8,11 +8,14 @@
 , ffmpeg-full
 , CoreFoundation
 , cmake
+, wrapQtAppsHook
 , openimageio2
 , openexr_3
 , portaudio
 , imath
-, qt6
+, qtwayland
+, qtmultimedia
+, qttools
 }:
 
 stdenv.mkDerivation {
@@ -47,7 +50,7 @@ stdenv.mkDerivation {
     pkg-config
     which
     cmake
-    qt6.wrapQtAppsHook
+    wrapQtAppsHook
   ];
 
   buildInputs = [
@@ -58,9 +61,9 @@ stdenv.mkDerivation {
     imath
     openexr_3
     portaudio
-    qt6.qtwayland
-    qt6.qtmultimedia
-    qt6.qttools
+    qtwayland
+    qtmultimedia
+    qttools
   ] ++ lib.optional stdenv.isDarwin CoreFoundation;
 
   meta = with lib; {
