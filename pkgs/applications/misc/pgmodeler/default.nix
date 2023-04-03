@@ -35,7 +35,7 @@ stdenv.mkDerivation rec {
     icon = "pgmodeler";
     comment = meta.description;
     type = "Application";
-    categories = [ "Misc" ];
+    categories = [ "Game" ];
   })];
 
   fixupPhase = ''
