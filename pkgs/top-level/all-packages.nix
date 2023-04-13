@@ -3864,6 +3864,8 @@ with pkgs;
 
   blink1-tool = callPackage ../tools/misc/blink1-tool { };
 
+  blink = callPackage ../applications/virtualization/blink { };
+
   blis = callPackage ../development/libraries/science/math/blis { };
 
   bliss = callPackage ../applications/science/math/bliss { };
