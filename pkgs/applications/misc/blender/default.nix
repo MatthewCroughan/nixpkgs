@@ -1,8 +1,9 @@
 { config, stdenv, lib, fetchurl, fetchzip, boost, cmake, ffmpeg, gettext, glew
-, ilmbase, libepoxy, libXi, libX11, libXext, libXrender
-, libjpeg, libpng, libsamplerate, libsndfile
-, libtiff, libwebp, libGLU, libGL, openal, opencolorio, openexr, openimagedenoise, openimageio, openjpeg, python310Packages
+, ilmbase, libepoxy, libXi, libX11, libXext, libXrender, pkg-config, libxkbcommon
+, libjpeg, libpng, libsamplerate, libsndfile, libdecor
+, libtiff, wayland, waylandpp, wayland-protocols, libwebp, libGLU, libGL, openal, opencolorio, openexr, openimagedenoise, openimageio, openjpeg, python310Packages
 , openvdb, libXxf86vm, tbb, alembic
+, libffi
 , zlib, zstd, fftw, opensubdiv, freetype, jemalloc, ocl-icd, addOpenGLRunpath
 , jackaudioSupport ? false, libjack2
 , cudaSupport ? config.cudaSupport or false, cudaPackages ? {}
@@ -36,7 +37,7 @@ stdenv.mkDerivation rec {
 
   patches = lib.optional stdenv.isDarwin ./darwin.patch;
 
-  nativeBuildInputs = [ cmake makeWrapper python310Packages.wrapPython llvmPackages.llvm.dev ]
+  nativeBuildInputs = [ cmake makeWrapper python310Packages.wrapPython llvmPackages.llvm.dev pkg-config ]
     ++ lib.optionals cudaSupport [ addOpenGLRunpath ];
   buildInputs =
     [ boost ffmpeg gettext glew ilmbase
@@ -50,6 +51,12 @@ stdenv.mkDerivation rec {
       potrace
       libharu
       libepoxy
+      libdecor
+      waylandpp
+      wayland
+      wayland-protocols
+      libffi
+      libxkbcommon
     ]
     ++ lib.optional (!stdenv.isAarch64) [
       openimagedenoise
@@ -98,6 +105,9 @@ stdenv.mkDerivation rec {
 
   cmakeFlags =
     [
+      "-DWITH_GHOST_WAYLAND=ON"
+      "-DWITH_GHOST_WAYLAND_LIBDECOR=ON"
+      "-DWITH_GHOST_WAYLAND_DYNLOAD=OFF"
       "-DWITH_ALEMBIC=ON"
       # Blender supplies its own FindAlembic.cmake (incompatible with the Alembic-supplied config file)
       "-DALEMBIC_INCLUDE_DIR=${lib.getDev alembic}/include"
