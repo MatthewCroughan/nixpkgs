@@ -1,5 +1,5 @@
 { lib, stdenv, fetchFromGitHub, meson, ninja, pkg-config
-, glib, readline, pcre, systemd, udev }:
+, glib, readline, pcre, systemd, udev, iproute2 }:
 
 stdenv.mkDerivation {
   pname = "miraclecast";
@@ -19,13 +19,14 @@ stdenv.mkDerivation {
   mesonFlags = [
     "-Drely-udev=true"
     "-Dbuild-tests=true"
+    "-Dip-binary=${iproute2}/bin/ip"
   ];
 
   meta = with lib; {
     description = "Connect external monitors via Wi-Fi";
     homepage    = "https://github.com/albfan/miraclecast";
     license     = licenses.lgpl21Plus;
-    maintainers = with maintainers; [ ];
+    maintainers = with maintainers; [ matthewcroughan ];
     platforms   = platforms.linux;
   };
 }
