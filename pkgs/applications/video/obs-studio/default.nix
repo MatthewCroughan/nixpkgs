@@ -1,11 +1,14 @@
 { config
 , lib
 , stdenv
+, nlohmann_json
+, websocketpp
+, asio
 , fetchFromGitHub
 , addOpenGLRunpath
 , cmake
 , fdk_aac
-, ffmpeg_4
+, ffmpeg_6
 , jansson
 , libjack2
 , libxkbcommon
@@ -50,20 +53,20 @@ let
 in
 stdenv.mkDerivation rec {
   pname = "obs-studio";
-  version = "29.0.2";
+  version = "29.1.0-rc1";
 
   src = fetchFromGitHub {
     owner = "obsproject";
     repo = "obs-studio";
     rev = version;
-    sha256 = "sha256-TIUSjyPEsKRNTSLQXuLJGEgD989hJ5GhOsqJ4nkKVsY=";
+    sha256 = "sha256-I/72gUWfAZPa+CfBDXcwEheS7QTubNW6Reyppnt3jrM=";
     fetchSubmodules = true;
   };
 
   patches = [
     # Lets obs-browser build against CEF 90.1.0+
     ./Enable-file-access-and-universal-access-for-file-URL.patch
-    ./Provide-runtime-plugin-destination-as-relative-path.patch
+#    ./Provide-runtime-plugin-destination-as-relative-path.patch
   ];
 
   nativeBuildInputs = [
@@ -76,9 +79,12 @@ stdenv.mkDerivation rec {
   ++ optional scriptingSupport swig;
 
   buildInputs = [
+    nlohmann_json
+    websocketpp
+    asio
     curl
     fdk_aac
-    ffmpeg_4
+    ffmpeg_6
     jansson
     libcef
     libjack2
@@ -117,10 +123,13 @@ stdenv.mkDerivation rec {
     cp -r ${libcef}/include cef/
   '';
 
+  NIX_CFLAGS_COMPILE = [ "-Wno-error" ];
+
   # obs attempts to dlopen libobs-opengl, it fails unless we make sure
   # DL_OPENGL is an explicit path. Not sure if there's a better way
   # to handle this.
   cmakeFlags = [
+    "-DENABLE_SCRIPTING=OFF"
     "-DCMAKE_CXX_FLAGS=-DDL_OPENGL=\\\"$(out)/lib/libobs-opengl.so\\\""
     "-DOBS_VERSION_OVERRIDE=${version}"
     "-Wno-dev" # kill dev warnings that are useless for packaging
