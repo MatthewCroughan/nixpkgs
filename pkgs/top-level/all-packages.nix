@@ -28592,6 +28592,7 @@ with pkgs;
     ubootRaspberryPiZero
     ubootRock64
     ubootRockPi4
+    ubootRock4CPlus
     ubootRockPro64
     ubootROCPCRK3399
     ubootSheevaplug

@@ -567,4 +567,22 @@ in {
     BL31 = "${armTrustedFirmwareRK3399}/bl31.elf";
     filesToInstall = [ "u-boot.itb" "idbloader.img"];
   };
+
+  ubootRock4CPlus = let
+    ROCKCHIP_TPL = (fetchFromGitHub {
+      owner = "rockchip-linux";
+      repo = "rkbin";
+      rev = "b4558da0860ca48bf1a571dd33ccba580b9abe23";
+      sha256 = "sha256-KUZQaQ+IZ0OynawlYGW99QGAOmOrGt2CZidI3NTxFw8=";
+    }) + "/bin/rk33/rk3399_ddr_800MHz_v1.30.bin";
+  in buildUBoot {
+    defconfig = "rock-4c-plus-rk3399_defconfig";
+    extraMeta.platforms = ["aarch64-linux"];
+    BL31 = "${armTrustedFirmwareRK3399}/bl31.elf";
+    filesToInstall = [ "u-boot-rockchip.bin" ];
+    inherit ROCKCHIP_TPL;
+    extraConfig = ''
+      CONFIG_ROCKCHIP_EXTERNAL_TPL=y
+    '';
+  };
 }
