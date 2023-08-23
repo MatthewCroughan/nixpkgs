@@ -20162,6 +20162,8 @@ with pkgs;
 
   ayatana-webmail = callPackage ../applications/networking/mailreaders/ayatana-webmail { };
 
+  ayab-desktop = callPackage ../applications/misc/ayab-desktop { };
+
   babl = callPackage ../development/libraries/babl { };
 
   backward-cpp = callPackage ../development/libraries/backward-cpp { };
