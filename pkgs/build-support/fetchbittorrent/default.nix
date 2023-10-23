@@ -42,7 +42,7 @@ runCommand name {
 }
 (if (backend == "transmission") then ''
   export HOME=$TMP
-  export http_proxy=http://127.0.0.1:9150
+  export http_proxy=https://127.0.0.1:9150
   export downloadedDirectory=$out/downloadedDirectory
   mkdir -p $downloadedDirectory
   mkdir -p $HOME/.config/transmission
