@@ -1,4 +1,4 @@
-{ lib, runCommand, transmission_noSystemd, rqbit, writeShellScript, formats, cacert, rsync }:
+{ lib, runCommand, transmission_noSystemd, rqbit, writeShellScript, formats, cacert, rsync, arti }:
 let
   urlRegexp = ''.*xt=urn:bt[im]h:([^&]{64}|[^&]{40}).*'';
 in
@@ -30,7 +30,7 @@ let
   jsonConfig = (formats.json {}).generate "jsonConfig" config;
 in
 runCommand name {
-  nativeBuildInputs = [ cacert ] ++ (if (backend == "transmission" ) then [ transmission_noSystemd ] else if (backend == "rqbit") then [ rqbit ] else throw "rqbit or transmission are the only available backends for fetchbittorrent");
+  nativeBuildInputs = [ cacert arti ] ++ (if (backend == "transmission" ) then [ transmission_noSystemd ] else if (backend == "rqbit") then [ rqbit ] else throw "rqbit or transmission are the only available backends for fetchbittorrent");
   outputHashAlgo = if hash != "" then null else "sha256";
   outputHash = hash;
   outputHashMode = if recursiveHash then "recursive" else "flat";
@@ -42,6 +42,8 @@ runCommand name {
 }
 (if (backend == "transmission") then ''
   export HOME=$TMP
+  export http_proxy=http://127.0.0.1:9150
+  arti proxy --disable-fs-permission-checks &
   export downloadedDirectory=$out/downloadedDirectory
   mkdir -p $downloadedDirectory
   mkdir -p $HOME/.config/transmission
