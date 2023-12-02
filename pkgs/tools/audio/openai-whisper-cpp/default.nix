@@ -3,6 +3,7 @@
 , fetchFromGitHub
 , SDL2
 , cudaPackages
+, which
 , makeWrapper
 , wget
 , Accelerate
@@ -30,6 +31,7 @@ stdenv.mkDerivation rec {
 
   nativeBuildInputs = [
     makeWrapper
+    which
     cudaPackages.cudatoolkit
   ];
 
