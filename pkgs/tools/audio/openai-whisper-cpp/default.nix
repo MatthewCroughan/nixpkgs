@@ -2,6 +2,7 @@
 , stdenv
 , fetchFromGitHub
 , SDL2
+, cudaPackages
 , makeWrapper
 , wget
 , Accelerate
@@ -12,29 +13,36 @@
 
 stdenv.mkDerivation rec {
   pname = "whisper-cpp";
-  version = "1.4.2";
+  version = "1.5.1";
 
   src = fetchFromGitHub {
     owner = "ggerganov";
     repo = "whisper.cpp";
     rev = "refs/tags/v${version}" ;
-    hash = "sha256-Qea9zGLJ41D+l8h1Sg/KJI6Ou02jtbRIxYPGoabM8nY=";
+    hash = "sha256-TXB5cQ32HA96i7ciJheuGrr5yxj/tBB8/KcaOTGO/HQ=";
   };
 
   # The upstream download script tries to download the models to the
   # directory of the script, which is not writable due to being
   # inside the nix store. This patch changes the script to download
   # the models to the current directory of where it is being run from.
-  patches = [ ./download-models.patch ];
+#  patches = [ ./download-models.patch ];
 
-  nativeBuildInputs = [ makeWrapper ];
+  nativeBuildInputs = [
+    makeWrapper
+    cudaPackages.cudatoolkit
+  ];
 
-  buildInputs = [ SDL2 ] ++ lib.optionals stdenv.isDarwin [ Accelerate CoreGraphics CoreML CoreVideo ];
+  buildInputs = [
+    SDL2
+    cudaPackages.libcublas
+    cudaPackages.cudatoolkit.lib
+  ] ++ lib.optionals stdenv.isDarwin [ Accelerate CoreGraphics CoreML CoreVideo ];
 
-  env = lib.optionalAttrs stdenv.isDarwin {
+  env = { WHISPER_CUBLAS = "1"; } // (lib.optionalAttrs stdenv.isDarwin {
     WHISPER_COREML = "1";
     WHISPER_COREML_ALLOW_FALLBACK = "1";
-  };
+  });
 
   makeFlags = [ "main" "stream" ];
 
