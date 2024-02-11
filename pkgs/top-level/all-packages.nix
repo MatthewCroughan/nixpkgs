@@ -8688,6 +8688,8 @@ with pkgs;
 
   robodoc = callPackage ../tools/text/robodoc { };
 
+  ucblogo = callPackage ../development/interpreters/ucblogo { };
+
   ucg = callPackage ../tools/text/ucg { };
 
   grive2 = callPackage ../tools/filesystems/grive2 { };
