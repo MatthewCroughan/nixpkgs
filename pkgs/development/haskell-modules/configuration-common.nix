@@ -1489,6 +1489,10 @@ self: super: {
   # See https://github.com/ekmett/perhaps/pull/5
   perhaps = doJailbreak super.perhaps;
 
+  hledger_1_32_1 = doDistribute (super.hledger_1_32_1.override {
+    hledger-lib = self.hledger-lib_1_32_1;
+  });
+
   # it wants to build a statically linked binary by default
   hledger-flow = overrideCabal (drv: {
     postPatch = (drv.postPatch or "") + ''
