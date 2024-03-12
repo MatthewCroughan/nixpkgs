@@ -2312,6 +2312,19 @@ with self; {
     };
   };
 
+  Carp = buildPerlPackage {
+    pname = "Carp";
+    version = "1.50";
+    src = fetchurl {
+      url = "mirror://cpan/authors/id/X/XS/XSAWYERX/Carp-1.50.tar.gz";
+      hash = "sha256-9Sc7ThptUbIplsSMs6PLxy/UVsQDj1wgsSfi1Ly869k=";
+    };
+    meta = {
+      description = "Alternative warn and die for modules";
+      license = with lib.licenses; [ artistic1 gpl1Plus ];
+    };
+  };
+
   CarpAlways = buildPerlPackage {
     pname = "Carp-Always";
     version = "0.16";
@@ -6750,6 +6763,20 @@ with self; {
     meta = {
       description = "Parse and format W3CDTF datetime strings";
       homepage = "https://metacpan.org/release/DateTime-Format-W3CDTF";
+      license = with lib.licenses; [ artistic1 gpl1Plus ];
+    };
+  };
+
+  TimeHiRes = buildPerlPackage {
+    pname = "Time-HiRes";
+    version = "1.9764";
+    src = fetchurl {
+      url = "mirror://cpan/authors/id/A/AT/ATOOMIC/Time-HiRes-1.9764.tar.gz";
+      hash = "sha256-mEG+VYe/t80fL+JnteWsBM4l551cx35e+anFq9EB17E=";
+    };
+    meta = {
+      homepage = "https://github.com/Perl/perl5";
+      description = "High resolution alarm, sleep, gettimeofday, interval timers";
       license = with lib.licenses; [ artistic1 gpl1Plus ];
     };
   };
@@ -19082,6 +19109,17 @@ with self; {
     meta = {
       description = "Secure File Transfer Protocol client";
       license = lib.licenses.gpl2Plus;
+    };
+  };
+
+  NetInterface = buildPerlPackage {
+    pname = "Net-Interface";
+    version = "1.016";
+    src = fetchurl {
+      url = "mirror://cpan/authors/id/M/MI/MIKER/Net-Interface-1.016.tar.gz";
+      hash = "sha256-e+RGk14BPQ7dPTcfkvuQo7s4q+mVYoidgXiVMSnlNQg=";
+    };
+    meta = {
     };
   };
 
