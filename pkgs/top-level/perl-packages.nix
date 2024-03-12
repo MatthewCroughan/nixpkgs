@@ -19071,6 +19071,32 @@ with self; {
     };
   };
 
+  NetSFTP = buildPerlPackage {
+    pname = "Net-SFTP";
+    version = "0.12";
+    src = fetchurl {
+      url = "mirror://cpan/authors/id/L/LK/LKINLEY/Net-SFTP-0.12.tar.gz";
+      hash = "sha256-go5nbuNUmRJ6R/Pz5YKNf4fRuI61XaO+Krjb3YOATxg=";
+    };
+    propagatedBuildInputs = [ MathInt64 NetSSHPerl ];
+    meta = {
+      description = "Secure File Transfer Protocol client";
+      license = lib.licenses.gpl2Plus;
+    };
+  };
+
+  NetARP = buildPerlPackage {
+    pname = "Net-ARP";
+    version = "1.0.12";
+    src = fetchurl {
+      url = "mirror://cpan/authors/id/C/CR/CRAZYDJ/Net-ARP-1.0.12.tar.gz";
+      hash = "sha256-KK2GBaOh4PhoqYmIJvVGHYCSPm66GtXgRzfmDoug7HA=";
+    };
+    buildInputs = [ NetPcap ];
+    meta = {
+    };
+  };
+
   NetServer = buildPerlPackage {
     pname = "Net-Server";
     version = "2.014";
