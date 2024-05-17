@@ -318,11 +318,11 @@ in
 
         mkfsEnv = mkfsOptionsToEnv cfg.mkfsOptions;
       in
-      pkgs.callPackage ./repart-image.nix {
+      pkgs.vmTools.runInLinuxVM (pkgs.callPackage ./repart-image.nix {
         systemd = cfg.package;
         inherit (cfg) name version imageFileBasename compression split seed sectorSize;
         inherit fileSystems definitionsDirectory partitionsJSON mkfsEnv;
-      };
+      });
 
     meta.maintainers = with lib.maintainers; [ nikstur willibutz ];
 
