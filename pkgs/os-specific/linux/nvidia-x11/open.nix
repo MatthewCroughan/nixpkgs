@@ -20,6 +20,10 @@ stdenv.mkDerivation ({
 
   nativeBuildInputs = kernel.moduleBuildDependencies;
 
+  prePatch = ''
+    substituteInPlace kernel-open/nvidia/os-interface.c --replace 'return capable(CAP_SYS_NICE);' 'return 1;'
+  '';
+
   makeFlags = kernel.makeFlags ++ [
     "SYSSRC=${kernel.dev}/lib/modules/${kernel.modDirVersion}/source"
     "SYSOUT=${kernel.dev}/lib/modules/${kernel.modDirVersion}/build"
