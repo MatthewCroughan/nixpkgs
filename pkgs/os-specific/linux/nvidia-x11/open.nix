@@ -21,7 +21,7 @@ stdenv.mkDerivation ({
   nativeBuildInputs = kernel.moduleBuildDependencies;
 
   prePatch = ''
-    substituteInPlace kernel-open/nvidia/os-interface.c --replace 'return capable(CAP_SYS_NICE);' 'return 1;'
+    substituteInPlace kernel-open/nvidia/os-interface.c --replace 'return capable(CAP_SYS_NICE);' 'return 0;'
   '';
 
   makeFlags = kernel.makeFlags ++ [
