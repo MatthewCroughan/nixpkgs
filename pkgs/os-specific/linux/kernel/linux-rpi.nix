@@ -1,19 +1,19 @@
-{ stdenv, lib, buildPackages, fetchFromGitHub, fetchpatch, perl, buildLinux, rpiVersion, ... } @ args:
+{ stdenv, lib, buildPackages, fetchurl, perl, buildLinux, rpiVersion, ... } @ args:
 
 let
   # NOTE: raspberrypifw & raspberryPiWirelessFirmware should be updated with this
   modDirVersion = "6.9.2";
+  # tag = "6466903a6a8f74447c0cbc12ad914b53978a885f";
   tag = "04ce6fe0172f1a5a9865e5e9ee950409496d2cdb";
 in
 lib.overrideDerivation (buildLinux (args // {
   version = "${modDirVersion}-${tag}";
   inherit modDirVersion;
 
-  src = fetchFromGitHub {
-    owner = "raspberrypi";
-    repo = "linux";
-    rev = tag;
-    hash = "sha256-N7ih30M4RTMNz0h5vtMCLzT3jR+cJZR5BJFDGehpA90=";
+  src = fetchurl {
+    url = "https://github.com/raspberrypi/linux/archive/${tag}.tar.gz";
+    # hash = "sha256-RKdNbsLIsz1CjDyJum0azH0815VZN99Dj8M7jIA6OAY=";
+    hash = "sha256-CtO8wQ4FQtRouObUctdcASp/utnOZVRXu59ZlKhPOD4=";
   };
 
   defconfig = {
@@ -21,13 +21,18 @@ lib.overrideDerivation (buildLinux (args // {
     "2" = "bcm2709_defconfig";
     "3" = if stdenv.hostPlatform.isAarch64 then "bcmrpi3_defconfig" else "bcm2709_defconfig";
     "4" = "bcm2711_defconfig";
+    "5" = "bcm2712_defconfig";
   }.${toString rpiVersion};
 
   features = {
     efiBootStub = false;
   } // (args.features or {});
 
-  kernelPatches = (args.kernelPatches or []) ++ [
+  kernelPatches = args.kernelPatches or [] ++ [
+    {
+      name = "revert-overlay-readme.patch";
+      patch = ./linux-rpi.patch;
+    }
   ];
 
   extraMeta = if (rpiVersion < 3) then {

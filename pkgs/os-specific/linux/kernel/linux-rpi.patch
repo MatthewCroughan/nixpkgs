@@ -1,0 +1,12 @@
+diff --git a/arch/arm/boot/dts/overlays/Makefile b/arch/arm/boot/dts/overlays/Makefile
+index 1cfef82031c4c..7c8bc39f54236 100644
+--- a/arch/arm/boot/dts/overlays/Makefile
++++ b/arch/arm/boot/dts/overlays/Makefile
+@@ -1,6 +1,6 @@
+ # Overlays for the Raspberry Pi platform
+ 
+-dtb-$(CONFIG_ARCH_BCM2835) += overlay_map.dtb hat_map.dtb README
++dtb-$(CONFIG_ARCH_BCM2835) += overlay_map.dtb hat_map.dtb
+ 
+ dtbo-$(CONFIG_ARCH_BCM2835) += \
+ 	act-led.dtbo \
