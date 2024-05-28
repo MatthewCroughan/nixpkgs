@@ -1,10 +1,10 @@
-{ stdenv, lib, buildPackages, fetchurl, perl, buildLinux, rpiVersion, ... } @ args:
+
+{ stdenv, lib, buildPackages, fetchpatch, fetchurl, perl, buildLinux, rpiVersion, ... } @ args:
 
 let
   # NOTE: raspberrypifw & raspberryPiWirelessFirmware should be updated with this
-  modDirVersion = "6.9.2";
-  # tag = "6466903a6a8f74447c0cbc12ad914b53978a885f";
-  tag = "04ce6fe0172f1a5a9865e5e9ee950409496d2cdb";
+  modDirVersion = "6.9.3";
+  tag = "ec003bfca3b9fea49df18e9685b182f7f8d499f9";
 in
 lib.overrideDerivation (buildLinux (args // {
   version = "${modDirVersion}-${tag}";
@@ -12,8 +12,7 @@ lib.overrideDerivation (buildLinux (args // {
 
   src = fetchurl {
     url = "https://github.com/raspberrypi/linux/archive/${tag}.tar.gz";
-    # hash = "sha256-RKdNbsLIsz1CjDyJum0azH0815VZN99Dj8M7jIA6OAY=";
-    hash = "sha256-CtO8wQ4FQtRouObUctdcASp/utnOZVRXu59ZlKhPOD4=";
+    hash = "sha256-hRCfIKJeuBmYrLpS+NWa2u/5fJPfYLhCvBcMWgOIPG4=";
   };
 
   defconfig = {
@@ -32,6 +31,15 @@ lib.overrideDerivation (buildLinux (args // {
     {
       name = "revert-overlay-readme.patch";
       patch = ./linux-rpi.patch;
+    }
+
+    {
+      name = "revert-backlight-name.patch";
+      patch = fetchpatch {
+        url = "https://github.com/raspberrypi/linux/commit/d54dce1c136ec85f97dc6d0f1725a438474da727.patch";
+        hash = "sha256-VgVKjSkVPUNKodTOTaATPJ4FFRKHh0rozGvQNHskSDE=";
+        revert = true;
+      };
     }
   ];
 
