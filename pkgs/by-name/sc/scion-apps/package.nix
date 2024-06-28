@@ -8,14 +8,9 @@ buildGoModule {
   pname = "scion-apps";
   version = "unstable-2024-04-05";
 
-  src = fetchFromGitHub {
-    owner = "netsec-ethz";
-    repo = "scion-apps";
-    rev = "cb0dc365082788bcc896f0b55c4807b72c2ac338";
-    hash = "sha256-RzWtnUpZfwryOfumgXHV5QMceLY51Zv3KI0K6WLz8rs=";
-  };
+  src = builtins.fetchGit { url = "https://github.com/MatthewCroughan/scion-apps.git"; rev = "15441d616ed88761b85d3c05191e815f589a0a7d"; };
 
-  vendorHash = "sha256-bz4vtELxrDfebk+00w9AcEiK/4skO1mE3lBDU1GkOrk=";
+  vendorHash = "sha256-UqX3jwsQt8QDlz2j1w+GIMTeVDoC2+LACHFqTbJ1+Xk=";
 
   postPatch = ''
     substituteInPlace webapp/web/tests/health/scmpcheck.sh \
