@@ -80,6 +80,7 @@ let
     "erofs" = [ erofs-utils ];
     "btrfs" = [ btrfs-progs ];
     "xfs" = [ xfsprogs ];
+    "bcachefs" = [];
   };
 
   fileSystemTools = builtins.concatMap (f: fileSystemToolMapping."${f}") fileSystems;
