@@ -1,8 +1,6 @@
 { lib, stdenv, fetchurl, cmake,
   gfortran, blas, lapack}:
 
-assert (!blas.isILP64) && (!lapack.isILP64);
-
 stdenv.mkDerivation rec {
   version = "5.2.1";
   pname = "superlu";

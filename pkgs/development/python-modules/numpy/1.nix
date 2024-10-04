@@ -32,7 +32,7 @@
   typing-extensions,
 }:
 
-assert (!blas.isILP64) && (!lapack.isILP64);
+#assert (!blas.isILP64) && (!lapack.isILP64);
 
 let
   cfg = writeTextFile {
@@ -62,6 +62,8 @@ buildPythonPackage rec {
   version = "1.26.4";
   pyproject = true;
   disabled = pythonOlder "3.9" || pythonAtLeast "3.13";
+
+  mesonFlags = [(lib.mesonBool "use-ilp64" true)];
 
   src = fetchPypi {
     inherit pname version;

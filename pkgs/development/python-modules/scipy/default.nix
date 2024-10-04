@@ -122,7 +122,9 @@ buildPythonPackage {
 
   buildInputs = [
     blas
+    (blas.override { isILP64 = false; })
     lapack
+    (lapack.override { isILP64 = false; })
     pybind11
     pooch
     xsimd
@@ -219,6 +221,8 @@ buildPythonPackage {
     };
   };
 
+  NPY_USE_BLAS_ILP64 = 1;
+  SCIPY_USE_BLAS_ILP64 = 1;
   SCIPY_USE_G77_ABI_WRAPPER = 1;
 
   meta = {
