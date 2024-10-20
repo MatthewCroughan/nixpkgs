@@ -7,16 +7,16 @@
 
 rustPlatform.buildRustPackage rec {
   pname = "rcodesign";
-  version = "0.22.0";
+  version = "0.27.0";
 
   src = fetchFromGitHub {
     owner = "indygreg";
     repo = "apple-platform-rs";
     rev = "apple-codesign/${version}";
-    hash = "sha256-ndbDBGtTOfHHUquKrETe4a+hB5Za9samlnXwVGVvWy4=";
+    hash = "sha256-F6Etl3Zbpmh3A/VeCcSXIy3W1WYFg8WUSJBJV/akCxU=";
   };
 
-  cargoHash = "sha256-cpQBdxTw/ge4VtzjdL2a2xgSeCT22fMIjuKu5UEedhI=";
+  cargoHash = "sha256-cpDM2C1dgyAEsCHjhN/4JdY9hZVoO1OvJ/DTfvis8hU=";
 
   buildInputs = lib.optionals stdenv.hostPlatform.isDarwin [
     darwin.apple_sdk_11_0.frameworks.Security
