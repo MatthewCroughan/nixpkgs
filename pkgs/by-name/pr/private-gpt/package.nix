@@ -11,9 +11,10 @@ python3Packages.toPythonApplication (python3Packages.private-gpt.overrideAttrs (
     };
   };
 
-  postInstall = ''
+  postInstall = oldAttrs.postInstall + ''
     makeWrapper ${python3Packages.python.interpreter} $out/bin/private-gpt \
       --prefix PYTHONPATH : "$PYTHONPATH" \
+      --set-default PGPT_SETTINGS_FOLDER "$out/${python3Packages.python.sitePackages}/private_gpt" \
       --add-flags "-m private_gpt"
   '';
 }))

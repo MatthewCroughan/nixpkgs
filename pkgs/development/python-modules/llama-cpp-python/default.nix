@@ -23,9 +23,14 @@
   typing-extensions,
   scipy,
   huggingface-hub,
+  fastapi,
+  httpx,
+  sse-starlette,
+  starlette-context,
+  pydantic-settings,
 }:
 let
-  version = "0.3.1";
+  version = "0.2.90";
 in
 buildPythonPackage {
   pname = "llama-cpp-python";
@@ -40,7 +45,7 @@ buildPythonPackage {
     owner = "abetlen";
     repo = "llama-cpp-python";
     rev = "refs/tags/v${version}";
-    hash = "sha256-eO1zvNJZBE5BCnbgbh00tFIRWBCWor1lIsrLXs/HFds=";
+    hash = "sha256-JCmWlYKUD0nkOYGXD1f3B9u2ZGJ87v0peT1v9Gax1oI=";
     fetchSubmodules = true;
   };
 
@@ -71,6 +76,11 @@ buildPythonPackage {
   );
 
   propagatedBuildInputs = [
+    fastapi
+    httpx
+    sse-starlette
+    pydantic-settings
+    starlette-context
     diskcache
     jinja2
     numpy

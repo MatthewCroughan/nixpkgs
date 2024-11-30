@@ -26,8 +26,8 @@ buildPythonPackage rec {
     poetry-core
   ];
 
-  pythonRemoveDeps = [
-    "llama-cpp-python"
+  pythonRelaxDeps = [
+#    "llama-cpp-python"
     "llama-index-core"
   ];
 

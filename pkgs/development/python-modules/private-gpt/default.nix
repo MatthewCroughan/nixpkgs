@@ -13,6 +13,7 @@
   injector,
   llama-index-core,
   llama-index-readers-file,
+  llama-cpp-python,
   python-multipart,
   pyyaml,
   transformers,
@@ -40,6 +41,12 @@ buildPythonPackage rec {
     hash = "sha256-IYTysU3W/NrtBuLe3ZJkztVSK+gzjkGIg0qcBYzB3bs=";
   };
 
+  prePatch = ''
+    substituteInPlace ./private_gpt/constants.py --replace "Path(__file__).parents[1]" "Path(os.environ.get('PROJECT_ROOT_PATH', os.getcwd()))"
+    echo "import os" | cat - ./private_gpt/constants.py > temp && mv temp ./private_gpt/constants.py
+    cat ./private_gpt/constants.py
+  '';
+
   build-system = [ poetry-core ];
 
   pythonRelaxDeps = [
@@ -55,6 +62,7 @@ buildPythonPackage rec {
     fastapi
     injector
     llama-index-core
+    llama-cpp-python
     llama-index-readers-file
     python-multipart
     pyyaml
@@ -78,6 +86,7 @@ buildPythonPackage rec {
     embeddings-ollama = [ llama-index-embeddings-ollama ];
     embeddings-openai = [ llama-index-embeddings-openai ];
     embeddings-sagemaker = [ boto3 ];
+    llms-llama-cpp = [ llama-index-llms-llama-cpp ];
     llms-ollama = [ llama-index-llms-ollama ];
     llms-openai = [ llama-index-llms-openai ];
     llms-openai-like = [ llama-index-llms-openai-like ];
