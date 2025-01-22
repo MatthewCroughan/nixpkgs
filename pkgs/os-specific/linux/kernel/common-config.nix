@@ -1271,9 +1271,6 @@ let
         HMM_MIRROR = yes;
         DRM_AMDGPU_USERPTR = yes;
 
-        PREEMPT = no;
-        PREEMPT_VOLUNTARY = yes;
-
         X86_AMD_PLATFORM_DEVICE = lib.mkIf stdenv.hostPlatform.isx86 yes;
         X86_PLATFORM_DRIVERS_DELL = lib.mkIf stdenv.hostPlatform.isx86 (whenAtLeast "5.12" yes);
         X86_PLATFORM_DRIVERS_HP = lib.mkIf stdenv.hostPlatform.isx86 (whenAtLeast "6.1" yes);
