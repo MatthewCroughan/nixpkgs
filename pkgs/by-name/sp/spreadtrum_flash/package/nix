@@ -1,0 +1,26 @@
+{
+  lib,
+  stdenv,
+  fetchFromGitHub,
+}:
+
+stdenv.mkDerivation rec {
+  pname = "spreadtrum-flash";
+  version = "1.20250629";
+
+  src = fetchFromGitHub {
+    owner = "ilyakurdyukov";
+    repo = "spreadtrum_flash";
+    rev = version;
+    hash = "sha256-8bFvKFs5t8oM9ZlTaPVM16rGTgesdH0/F3RRmkmYnmA=";
+  };
+
+  meta = {
+    description = "Spreadtrum firmware dumper for Linux";
+    homepage = "https://github.com/ilyakurdyukov/spreadtrum_flash#";
+    license = lib.licenses.unfree; # FIXME: nix-init did not find a license
+    maintainers = with lib.maintainers; [ ];
+    mainProgram = "spreadtrum-flash";
+    platforms = lib.platforms.all;
+  };
+}
