@@ -5,6 +5,11 @@
   fetchpatch,
   autoconf,
   automake,
+  ninja,
+  openssl,
+  scdoc,
+  zlib,
+  meson,
   docbook_xml_dtd_42,
   docbook_xml_dtd_43,
   docbook_xsl,
@@ -12,6 +17,7 @@
   libtool,
   pkg-config,
   libxslt,
+  fetchFromGitHub,
   xz,
   zstd,
   elf-header,
@@ -31,29 +37,31 @@ let
 in
 stdenv.mkDerivation rec {
   pname = "kmod";
-  version = "31";
+  version = "34";
 
   # autogen.sh is missing from the release tarball,
   # and we need to run it to regenerate gtk_doc.make,
   # because the version in the release tarball is broken.
   # Possibly this will be fixed in kmod 30?
   # https://git.kernel.org/pub/scm/utils/kernel/kmod/kmod.git/commit/.gitignore?id=61a93a043aa52ad62a11ba940d4ba93cb3254e78
-  src = fetchzip {
-    url = "https://git.kernel.org/pub/scm/utils/kernel/kmod/kmod.git/snapshot/kmod-${version}.tar.gz";
-    hash = "sha256-FNR015/AoYBbi7Eb1M2TXH3yxUuddKICCu+ot10CdeQ=";
+  src = fetchFromGitHub {
+    owner = "kmod-project";
+    repo = "kmod";
+    rev = "v34";
+    hash = "sha256-5iIk3b2QnRz/VbJlSHhp4D10KXwQXpkWZClTA1Pgddw=";
   };
 
   outputs = [
     "out"
     "dev"
     "lib"
-  ]
-  ++ lib.optional withDevdoc "devdoc";
+  ];
 
   strictDeps = true;
   nativeBuildInputs = [
-    autoconf
-    automake
+    meson
+    scdoc
+    ninja
     docbook_xsl
     libtool
     libxslt
@@ -67,42 +75,50 @@ stdenv.mkDerivation rec {
   ];
   buildInputs = [
     xz
+    openssl
     zstd
-  ]
-  # gtk-doc is looked for with pkg-config
-  ++ lib.optionals withDevdoc [ gtk-doc ];
-
-  preConfigure = ''
-    ./autogen.sh
-  '';
+    zlib
+  ];
 
   configureFlags = [
     "--sysconfdir=/etc"
     "--with-xz"
     "--with-zstd"
     "--with-modulesdirs=${modulesDirs}"
-    (lib.enableFeature withDevdoc "gtk-doc")
-  ]
-  ++ lib.optional withStatic "--enable-static";
+  ];
+
+  mesonFlags = [
+    (lib.mesonBool "manpages" false)
+    "-Dmodulesdirs=${modulesDirs}"
+    "-Dsysconfdir=${builtins.placeholder "out"}/etc"
+  ];
+
+  postPatch = ''
+    for i in $(grep -rl 'MODULE_DIRECTORY')
+    do
+      substituteInPlace $i \
+        --replace MODULE_DIRECTORY MODULESDIRS
+    done
+  '';
 
   patches = [
     ./module-dir.patch
-    (fetchpatch {
-      name = "musl.patch";
-      url = "https://git.kernel.org/pub/scm/utils/kernel/kmod/kmod.git/patch/?id=11eb9bc67c319900ab00523997323a97d2d08ad2";
-      hash = "sha256-CYG615elMWces6QGQRg2H/NL7W4XsG9Zvz5H+xsdFFo=";
-    })
-  ]
-  ++ lib.optional withStatic ./enable-static.patch;
+##    (fetchpatch {
+##      name = "musl.patch";
+##      url = "https://git.kernel.org/pub/scm/utils/kernel/kmod/kmod.git/patch/?id=11eb9bc67c319900ab00523997323a97d2d08ad2";
+##      hash = "sha256-CYG615elMWces6QGQRg2H/NL7W4XsG9Zvz5H+xsdFFo=";
+##    })
+  ];
+#  ++ lib.optional withStatic ./enable-static.patch;
 
-  postInstall = ''
-    for prog in rmmod insmod lsmod modinfo modprobe depmod; do
-      ln -sv $out/bin/kmod $out/bin/$prog
-    done
-
-    # Backwards compatibility
-    ln -s bin $out/sbin
-  '';
+#  postInstall = ''
+#    for prog in rmmod insmod lsmod modinfo modprobe depmod; do
+#      ln -sv $out/bin/kmod $out/bin/$prog
+#    done
+#
+#    # Backwards compatibility
+#    ln -s bin $out/sbin
+#  '';
 
   passthru.updateScript = gitUpdater {
     # No nicer place to find latest release.
