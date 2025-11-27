@@ -20,7 +20,8 @@ stdenv.mkDerivation rec {
     owner = "DylanVanAssche";
     repo = "libssc";
     tag = "v${version}";
-    hash = "sha256-vc3phLAURKXAVD/o4uiGkBtJ3wsbLEfkwygMltEhqug=";
+    hash = "sha256-ULENnq2MDbA5s0LPB2/Xlx6OatWYlxXF60s1GPGkhlE=";
+    fetchSubmodules = true;
   };
 
   buildInputs = [
