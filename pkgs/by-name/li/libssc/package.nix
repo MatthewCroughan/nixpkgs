@@ -19,8 +19,8 @@ stdenv.mkDerivation rec {
     domain = "codeberg.org";
     owner = "DylanVanAssche";
     repo = "libssc";
-    tag = "v${version}";
-    hash = "sha256-ULENnq2MDbA5s0LPB2/Xlx6OatWYlxXF60s1GPGkhlE=";
+    rev = "5e699fc97d92684c6882741fc9f71cb57a33e25b";
+    hash = "sha256-m3jCK7QQdgajycI9bWsydKEl5KnJZ+1q2pV3c5PcB7A=";
     fetchSubmodules = true;
   };
 

@@ -43,10 +43,6 @@ stdenv.mkDerivation rec {
     })
   ];
 
-  propagatedBuildInputs = [
-    libqmi
-  ];
-
   buildInputs = [
     libgudev
     systemd
