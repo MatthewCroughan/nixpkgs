@@ -41,7 +41,7 @@ stdenv.mkDerivation rec {
     ninja
   ];
 
-  strictDeps = true;
+#  strictDeps = true;
 
   meta = {
     description = "Library for exposing Qualcomm Sensor Core sensors to Linux";
