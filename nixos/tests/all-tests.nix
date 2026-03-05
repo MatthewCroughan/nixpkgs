@@ -1782,5 +1782,6 @@ in
   zrepl = runTest ./zrepl.nix;
   zwave-js = runTest ./zwave-js.nix;
   zwave-js-ui = runTest ./zwave-js-ui.nix;
+  usbip = runTest ./usbip.nix;
   # keep-sorted end
 }
