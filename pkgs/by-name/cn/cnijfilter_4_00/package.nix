@@ -45,11 +45,11 @@ stdenv.mkDerivation {
     should be pretty much everything except the version and the 'pr'
     and 'pr_id' values to loop over).
   */
-  version = "4.00";
+  version = "4.10";
 
   src = fetchzip {
-    url = "http://gdlp01.c-wss.com/gds/5/0100005515/01/cnijfilter-source-4.00-1.tar.gz";
-    sha256 = "1f6vpx1z3qa88590i5m0s49j9n90vpk81xmw6pvj0nfd3qbvzkya";
+    url = "https://gdlp01.c-wss.com/gds/8/0100005858/01/cnijfilter-source-4.10-1.tar.gz";
+    sha256 = "sha256-UuGUWFgCsxYLGMmSZTfT7Y75t7baBULxVJPUTM6JOBY=";
   };
 
   nativeBuildInputs = [
@@ -139,7 +139,7 @@ stdenv.mkDerivation {
 
   postInstall = ''
     set -o xtrace
-    for pr in mg2400 mg2500 mg3500 mg5500 mg6400 mg6500 mg7100 p200; do
+    for pr in ip2800 ix6700 ix6800 mx470 mx530 ip8700 e400 e560; do
       cd ppd;
       ./autogen.sh --prefix=$out --program-suffix=$pr
       make clean;
@@ -156,7 +156,7 @@ stdenv.mkDerivation {
     done;
 
     mkdir -p $out/lib/bjlib;
-    for pr_id in 423 424 425 426 427 428 429 430; do
+    for pr_id in 431 432 433 434 435 436 437 438; do
       install -c -m 755 $pr_id/database/* $out/lib/bjlib;
       install -c -s -m 755 $pr_id/libs_bin${arch}/*.so.* $out/lib;
     done;
@@ -182,7 +182,7 @@ stdenv.mkDerivation {
   dontPatchELF = true;
 
   meta = {
-    description = "Canon InkJet printer drivers for the MG2400 MG2500 MG3500 MG5500 MG6400 MG6500 MG7100 and P200 series";
+    description = "Canon InkJet printer drivers for the iP2800, iX6700, iX6800, MX470, MX530, iP8700, E400, and E560 series";
     homepage = "https://www.canon-europe.com/support/consumer_products/products/fax__multifunctionals/inkjet/pixma_mg_series/pixma_mg5550.aspx?type=drivers&driverdetailid=tcm:13-1094072";
     sourceProvenance = with lib.sourceTypes; [
       fromSource
@@ -193,3 +193,4 @@ stdenv.mkDerivation {
     maintainers = with lib.maintainers; [ chpatrick ];
   };
 }
+
