@@ -10,6 +10,7 @@
   libtiff,
   libpng,
   ghostscript,
+  fetchFromGitHub
 }:
 
 /*
@@ -33,9 +34,11 @@ stdenv.mkDerivation {
   */
   version = "2.80";
 
-  src = fetchzip {
-    url = "http://gdlp01.c-wss.com/gds/1/0100000841/01/cnijfilter-common-2.80-1.tar.gz";
-    sha256 = "06s9nl155yxmx56056y22kz1p5b2sb5fhr3gf4ddlczjkd1xch53";
+  src = fetchFromGitHub {
+    owner = "endlessm";
+    repo = "cnijfilter-common";
+    rev = "0c5cfbf85cd6efc46d2dbb9da68ce8fac2815371";
+    sha256 = "sha256-IwLH1PuI80B/fv/3bZW+pE3CB9rUK8xXgypv39P8BuI=";
   };
 
   nativeBuildInputs = [
