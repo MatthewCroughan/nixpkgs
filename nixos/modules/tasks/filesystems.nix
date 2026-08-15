@@ -443,6 +443,7 @@ in
           "ext4"
           "btrfs"
           "xfs"
+          "vfat"
         ];
         notAutoResizable = fs: fs.autoResize && !(builtins.elem fs.fsType resizableFSes);
       in
