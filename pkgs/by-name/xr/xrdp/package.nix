@@ -28,6 +28,7 @@
   _experimental-update-script-combinators,
   gitUpdater,
   nixosTests,
+  x264,
 }:
 
 let
@@ -104,6 +105,7 @@ let
     ];
 
     buildInputs = [
+      x264
       fuse3
       lame
       libjpeg
@@ -142,6 +144,7 @@ let
       "--enable-rfxcodec"
       "--enable-tjpeg"
       "--enable-vsock"
+      "--enable-x264"
     ];
 
     installFlags = [
