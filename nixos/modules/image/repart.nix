@@ -194,8 +194,8 @@ in
 
     sectorSize = lib.mkOption {
       type = with lib.types; nullOr int;
-      default = 512;
-      example = lib.literalExpression "4096";
+      default = 4096;
+      example = lib.literalExpression "512";
       description = ''
         The sector size of the disk image produced by systemd-repart. This
         value must be a power of 2 between 512 and 4096.
